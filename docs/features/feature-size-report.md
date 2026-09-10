@@ -45,8 +45,8 @@ dynamic-linking metadata.
   identities hold is a bug in razves, not a finding about the binary.
 * **`unattributed` is always printed, never absorbed.** No row of the report may be rounded into
   another to make a total work.
-* **Per-section coverage is printed next to every section conclusion.** `.text` attribution is
-  worth ~98%; `.rodata` attribution is worth ~41%. A reader who cannot see the difference will
+* **Per-section coverage is printed next to every section conclusion.** Measured on the release
+  subject: `.text` 97.6%, `.data.rel.ro` 94.7%, `.data` 97.2%, `.rodata` 40.6%, `.init_array` 20.0%. A reader who cannot see the difference will
   draw a `.rodata` conclusion with the confidence a `.text` conclusion deserves.
 * **The algorithm that produced a number is named in the report header.** ELF sizes come from
   `st_size`; Mach-O sizes are derived by address delta and include trailing alignment padding.
@@ -191,6 +191,27 @@ dynamic-linking metadata.
 * Bitcode. `JetBrains-Research/bitcode-tools` covers that and it is a different question.
 * Any format but ELF and Mach-O. No PE, no Wasm.
 
+### Scenario: the sections nobody owns are named one by one
+* **Given:** a binary whose `.eh_frame` no symbol claims.
+* **When:** razves reports on it.
+* **Then:** `.eh_frame` is a row of its own with its size and 0% coverage, not part of a single
+  "unattributed" figure.
+* **And:** every unattributed byte is inside a named section row — the 22 unowned sections of the
+  release subject plus the shortfall of the five owned ones add up to its `unattributed` exactly.
+* **Automated:** `SizeReportTest.aSectionNoSymbolClaimsIsNamedRatherThanSummedAway`,
+  `RealBinaryTest.theSectionsNobodyOwnsAreNamedOneByOne`
+
+### Scenario: every attributed byte has exactly one origin
+* **Given:** a binary containing Kotlin, Kotlin/Native runtime, Rust and plain C symbols.
+* **When:** razves splits the attributed bytes by origin.
+* **Then:** the rows sum to the attributed total exactly, and a report whose rows do not sum to it
+  cannot be constructed.
+* **And:** all five origins get a row, including the ones this binary has nothing in — a row that
+  appears and disappears between two builds is noise in a diff.
+* **Automated:** `SizeReportTest.everyAttributedByteLandsInExactlyOneOrigin`,
+  `SizeReportTest.everyOriginGetsARowInTheEnumsOrderEvenWhenItIsEmpty`,
+  `RealBinaryTest.theOriginSplitOfARealReleaseBinary`
+
 ## 7. Quirks
 
 * **Inlined code is charged to the caller.** An inlined stdlib helper has no symbol of its own, so
@@ -203,5 +224,10 @@ dynamic-linking metadata.
 * **The symbol table razves reads is 19–21% of the binary it is describing.** Measured on four
   subjects. It is simultaneously the tool's input and the largest single saving available, and
   removing it removes the tool's ability to see anything.
-* **`.rodata` coverage is about 41%.** Any conclusion about data size rests on less than half of
-  the section, which is why coverage is printed per section.
+* **`.rodata` coverage is 40.6%.** Any conclusion about data size rests on less than half of the
+  section, which is why coverage is printed per section.
+* **NOBITS sections have no owner at all.** `.bss` and `.tbss` are counted in the virtual size and
+  excluded from attribution entirely, so a package with a megabyte of uninitialised state gets no
+  row for it. That is defensible while the subject is file size — NOBITS costs nothing to ship — and
+  it stops being defensible the moment a budget is set on the allocated size instead. Tracked as
+  [B-21](../backlog/B-21-attribute-nobits-sections.md).

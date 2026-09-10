@@ -194,6 +194,35 @@ class RealBinaryTest {
         assertEquals(6_314_800L, byOrigin[Origin.C], "unmangled C")
     }
 
+    @Test
+    fun theSectionsNobodyOwnsAreNamedOneByOne() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val r = Attribution.report(ElfReader.read(file.readBytes(), file.name))
+
+        println("sections of ${file.name} that no symbol claims a byte of:")
+        r.unownedSections.forEach { println("  ${it.section.name.padEnd(20)}${it.section.size}") }
+        println("owned sections and their coverage:")
+        r.ownedSections.forEach {
+            println("  ${it.section.name.padEnd(20)}${it.section.size}  ${(it.coverage * 1000).toInt() / 10.0}%")
+        }
+
+        val unowned = r.unownedSections.associate { it.section.name to it.section.size }
+        assertEquals(
+            r.reconciliation.unattributedBytes,
+            r.unownedSections.sumOf { it.section.size } + r.ownedSections.sumOf { it.unattributed },
+            "every unattributed byte is in a named section row",
+        )
+        // Exception unwinding and dynamic linking: 2.2 MB of a 20 MB binary that belongs to no
+        // package and would be invisible as a single "unattributed" figure. Measured 2026-09-11.
+        if (file.length() != MEASURED_FILE_SIZE) return
+        assertEquals(1_287_092L, unowned[".eh_frame"], ".eh_frame")
+        assertEquals(213_092L, unowned[".eh_frame_hdr"], ".eh_frame_hdr")
+        assertEquals(42_907L, unowned[".gcc_except_table"], ".gcc_except_table")
+        assertEquals(269_136L, unowned[".dynsym"], ".dynsym")
+        assertEquals(289_336L, unowned[".dynstr"], ".dynstr")
+        assertEquals(87_552L, unowned[".gnu.hash"], ".gnu.hash")
+    }
+
     private fun machOSubject(): File? {
         val configured = System.getenv(MACHO_SUBJECT_ENV) ?: System.getProperty(MACHO_SUBJECT_ENV)
         return (listOfNotNull(configured) + DEFAULT_MACHO_CANDIDATES).map { File(it) }.firstOrNull { it.isFile }

@@ -1,5 +1,7 @@
 package io.github.youndie.razves.report
 
+import io.github.youndie.razves.attribute.Mangling
+import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.read.BinaryImage
 import io.github.youndie.razves.read.SectionKind
 import io.github.youndie.razves.read.Symbol
@@ -22,6 +24,31 @@ import io.github.youndie.razves.read.Symbol
  * identity in [Reconciliation] holds without a clamp anywhere else.
  */
 public object Attribution {
+    /**
+     * The full report: the reconciliation, plus the attributed bytes split by origin.
+     *
+     * Every attributed byte lands in exactly one origin row, and [SizeReport] refuses to be built
+     * if the rows do not add up to what the reconciliation attributed. That is the third identity of
+     * the tool, after the file-size one and the per-section one, and it exists for the same reason:
+     * a split that does not add up is a split that is quietly losing bytes somewhere.
+     */
+    public fun report(image: BinaryImage): SizeReport {
+        val reconciliation = of(image)
+        val byOrigin =
+            reconciliation.sections
+                .flatMap { it.owners }
+                .groupBy { Mangling.originOf(it.symbol.name) }
+        // Origin.entries rather than the map's keys, so the enum's own order decides the report's -
+        // Kotlin first, then the runtime beneath it, then what was linked in - and so a bucket that
+        // happens to be empty in this binary is still a row saying zero rather than a missing line.
+        val rows =
+            Origin.entries.map { origin ->
+                val extents = byOrigin[origin].orEmpty()
+                OriginRow(origin, extents.sumOf { it.bytes }, extents.size)
+            }
+        return SizeReport(reconciliation, rows)
+    }
+
     public fun of(image: BinaryImage): Reconciliation {
         val bySection = image.symbols.groupBy { it.sectionIndex }
         val sections =

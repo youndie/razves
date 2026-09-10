@@ -115,6 +115,8 @@ unchanged to a tenth of a percent, and the runtime now has a number of its own �
 | The largest Kotlin symbol in it is `kfun:kotlin.text.regex.AbstractCharClass.Companion.CharClasses.$init_global#internal` (65,465 B) | same listing |
 | `.text` is 97.7% attributable by symbol; `.rodata` only 40.7%; `.eh_frame` (1,287,092 B), `.eh_frame_hdr` (213,092 B) and `.gcc_except_table` (42,907 B) are 0% attributable by symbol | per-section attribution run over the Postgres release binary |
 | `.dynsym`+`.dynstr`+`.gnu.hash`+`.gnu.version` = 668,452 B, also 0% attributable by symbol | same run |
+| 22 allocated sections of that binary are claimed by no symbol at all, and six of them are 2,189,115 B between them: `.eh_frame` 1,287,092, `.dynstr` 289,336, `.dynsym` 269,136, `.eh_frame_hdr` 213,092, `.gnu.hash` 87,552, `.gcc_except_table` 42,907 — exception unwinding and dynamic linking, 10.7% of the file, belonging to no package | razves' own report, once B-06 existed |
+| Its five sections that *are* owned carry very different coverage: `.text` 97.6%, `.data.rel.ro` 94.7%, `.data` 97.2%, **`.rodata` 40.6%**, `.init_array` 20.0% | same run |
 | Every gap between adjacent file regions — the ELF header, the program header table, each section that occupies file bytes, the section header table — is **strictly smaller than the alignment of the region that follows it**, in all four subjects, over 34 to 43 regions each | scripted layout sweep, 2026-09-11 |
 
 **Consequence 1 — the headline of the first article is not the one the brief predicted.** The
