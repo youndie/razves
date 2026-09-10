@@ -45,7 +45,7 @@ What it deliberately does **not** do:
 
 | File | What is there |
 |---|---|
-| `core/src/commonMain/kotlin/io/github/youndie/razves/read/Elf.kt` | section headers, `.symtab`/`.strtab`, `st_size` |
+| `core/src/commonMain/kotlin/io/github/youndie/razves/read/ElfReader.kt` | section headers, `.symtab`/`.strtab`, `st_size` |
 | `core/src/commonMain/kotlin/io/github/youndie/razves/read/MachO.kt` | load commands, `LC_SYMTAB`, address-delta sizing |
 | `core/src/commonMain/kotlin/io/github/youndie/razves/attribute/Mangling.kt` | the twelve `k*:` prefixes, Rust v0 and legacy, Itanium C++ |
 | `core/src/commonMain/kotlin/io/github/youndie/razves/attribute/Origin.kt` | the origin buckets |

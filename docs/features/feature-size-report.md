@@ -86,15 +86,33 @@ dynamic-linking metadata.
 
 ## 5. Scenarios (BDD / test cases)
 
-### Scenario: the totals reconcile on a real ELF release binary — *target*
+### Scenario: the totals reconcile on a real ELF release binary
 * **Given:** an unstripped `linuxX64` Kotlin/Native executable.
 * **When:** razves reports on it.
-* **Then:** `allocated − NOBITS + non-allocated + headers` equals the file size exactly, with no
-  tolerance.
+* **Then:** `allocated − NOBITS + non-allocated + headers + padding` equals the file size exactly,
+  with no tolerance.
 * **And:** `attributed + unattributed` equals the allocated total exactly.
 * **And:** on the `shildik` Postgres release subject specifically, that arithmetic is
-  `16,241,668 − 27,696 + 4,324,353 + 5,411 = 20,543,736` — the figures
-  [research §1.2](../research/research-architecture.md) already verified by hand.
+  `16,213,972 + 27,696 NOBITS + 4,324,353 + 3,040 + 2,371 = 20,543,736` — the figures
+  [research §1.2](../research/research-architecture.md) verified by hand before the reader existed.
+* **Automated:** `RealBinaryTest.theMeasuredSubjectStillHasTheNumbersTheResearchRecorded` — it skips,
+  by name, when the subject binary is not on the machine.
+
+### Scenario: a lost or misread region fails instead of balancing
+* **Given:** a reader that drops a section, misreads an offset, or lets two regions overlap.
+* **When:** a report is constructed from it.
+* **Then:** construction fails, naming the bytes nobody claims or the regions that collide.
+* **And:** it does not silently absorb the difference into padding — the failure mode the first
+  version of this arithmetic actually had.
+* **Automated:** `ReconciliationTest.aReaderThatLosesASectionFailsAtConstruction`,
+  `ReconciliationTest.sectionsThatOverlapInTheFileFail`
+
+### Scenario: an alias is not charged twice
+* **Given:** a section in which two symbols — a definition and an alias — cover the same bytes.
+* **When:** razves attributes it.
+* **Then:** the bytes are charged once, so the section is never more than 100% attributed.
+* **And:** the same run twice produces the same owner, so a diff of a binary against itself is empty.
+* **Automated:** `ReconciliationTest.overlappingSymbolsAreChargedOnce`
 
 ### Scenario: the totals reconcile on a Mach-O binary — *target*
 * **Given:** a `macosArm64` Kotlin/Native executable.
@@ -124,6 +142,13 @@ dynamic-linking metadata.
 * **And:** the C++ bucket contains the Kotlin/Native runtime and no `tokio`, `sqlx_postgres` or
   `core::ptr` symbols — the misattribution [research §1.3](../research/research-architecture.md)
   measured at about 964 KB.
+
+### Scenario: a stripped binary is recognised as stripped
+* **Given:** a binary with no `.symtab`.
+* **When:** razves reads it.
+* **Then:** the image reports that it carries no symbol table, rather than an empty symbol list that
+  reads as a binary containing nothing.
+* **Automated:** `ElfReaderTest.aStrippedBinaryIsReadableAndSaysItHasNoSymbolTable`
 
 ### Scenario: a stripped binary is refused — *target*
 * **Given:** a binary with no `.symtab`.

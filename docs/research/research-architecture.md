@@ -78,10 +78,20 @@ sizes; the grouping is by the mangling scheme of the symbol name (§1.3).
 
 | Subject | File | Allocated sections | `.symtab`+`.strtab` | Debug sections | Attributed by symbol |
 |---|---|---|---|---|---|
-| `distribution` release (Postgres) | 20,543,736 | 16,241,668 (79.1%) | 4,323,906 (21.0%) | — | 12,917,296 (79.5% of allocated) |
-| `distribution` debug | 39,818,016 | 22,412,342 (56.3%) | 8,421,700 (21.2%) | 9,012,672 (22.6%) | 18,423,601 (82.2%) |
-| `distribution-sqlite` release | 21,555,648 | 17,235,072 (80.0%) | 4,343,054 (20.1%) | — | 14,038,141 (81.5%) |
-| `cli` release | 15,398,536 | 12,497,572 (81.2%) | 2,920,385 (19.0%) | — | 9,853,024 (78.8%) |
+| `distribution` release (Postgres) | 20,543,736 | 16,241,668 (79.1%) | 4,323,906 (21.0%) | — | 12,879,147 (79.3% of allocated) |
+| `distribution` debug | 39,818,016 | 22,412,342 (56.3%) | 8,421,700 (21.2%) | 9,012,672 (22.6%) | 18,371,841 (82.0%) |
+| `distribution-sqlite` release | 21,555,648 | 17,235,072 (80.0%) | 4,343,054 (20.1%) | — | 13,998,158 (81.2%) |
+| `cli` release | 15,398,536 | 12,497,572 (81.2%) | 2,920,385 (19.0%) | — | 9,824,364 (78.6%) |
+
+**Correction found while implementing M0 (B-01, B-02).** The "attributed" column first read
+12,917,296 / 18,423,601 / 14,038,141 / 9,853,024. Those were **sums of the sizes `llvm-nm` records**,
+and a sum over-counts: aliases and weak definitions cover the same bytes twice, and a recorded size
+occasionally runs past the end of its section. razves charges each byte to exactly one symbol, so
+the column above is now the *union* of the covered ranges, which is what a report may actually claim.
+The difference is small and consistent — 12,497 / 20,917 / 13,324 / 6,881 bytes, 0.07% to 0.11% —
+and it is one-directional: any tool that sums recorded sizes reports slightly more attribution than
+exists. The origin table below is still a sum and carries the same ≤0.11% bias; the shares it states
+to one decimal place are unaffected by it.
 
 And the attributed bytes, by origin:
 
@@ -101,6 +111,7 @@ And the attributed bytes, by origin:
 | The largest Kotlin symbol in it is `kfun:kotlin.text.regex.AbstractCharClass.Companion.CharClasses.$init_global#internal` (65,465 B) | same listing |
 | `.text` is 97.7% attributable by symbol; `.rodata` only 40.7%; `.eh_frame` (1,287,092 B), `.eh_frame_hdr` (213,092 B) and `.gcc_except_table` (42,907 B) are 0% attributable by symbol | per-section attribution run over the Postgres release binary |
 | `.dynsym`+`.dynstr`+`.gnu.hash`+`.gnu.version` = 668,452 B, also 0% attributable by symbol | same run |
+| Every gap between adjacent file regions — the ELF header, the program header table, each section that occupies file bytes, the section header table — is **strictly smaller than the alignment of the region that follows it**, in all four subjects, over 34 to 43 regions each | scripted layout sweep, 2026-09-11 |
 
 **Consequence 1 — the headline of the first article is not the one the brief predicted.** The
 brief expects the answer to "why is it this big" to be *stdlib, ktor, serialization*. In every
@@ -133,6 +144,15 @@ two directions at once, and both were measured:
 Reconciled: 16,241,668 allocated − 27,696 NOBITS + 4,324,353 non-allocated + 5,411 of ELF header,
 program headers and section headers = 20,543,736, the file size exactly. That identity is the
 tool's primary oracle ([D7](#d7-the-oracle-is-arithmetic-first-and-a-second-reader-second)).
+
+**Correction found while implementing M0 (B-02).** Written as stated, that identity checks nothing.
+The 5,411 is headers *plus* the alignment gaps between sections, and computing the gaps as
+"whatever is left over" makes the equation true by construction — a reader that loses a whole
+section still balances, because the section's bytes silently become padding. The test written to
+catch exactly that failure is what caught it. The fix is the last row of the table above: the gaps
+are measured from the offsets rather than left over, and each one is held against the alignment of
+the region it precedes. A linker pads a region up to its own alignment and no further, so that
+bound is exact rather than a heuristic, and it is what makes the identity a test.
 
 **Consequence 4 — `unattributed` is a large, structural number, not a rounding error.** 20.5% of
 the allocated bytes of the Postgres release binary belong to no symbol, and most of it is

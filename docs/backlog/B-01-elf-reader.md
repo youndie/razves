@@ -1,7 +1,7 @@
 ---
 id: B-01
 title: "Read ELF section headers and .symtab without a subprocess"
-status: open
+status: done
 priority: P0
 size: M
 stage: stage-0-readers
@@ -26,7 +26,19 @@ Xcode; a Linux CI runner with a JDK has neither.
   needs, or any format but ELF64.
 
 - AC: pointed at `shildik/distribution/build/bin/linuxX64/releaseExecutable/shildik.kexe`, it
-  produces 36 sections and 58,164 symbols, of which 57,905 carry an address and a size — the counts
-  [research §1.2](../research/research-architecture.md) measured through `llvm-nm`.
-- AC: no process is spawned. A test asserts that.
-- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/read/Elf.kt`
+  reproduces the section figures [research §1.2](../research/research-architecture.md) measured
+  through `llvm-nm` and `llvm-objdump`: 16,213,972 allocated file bytes, 27,696 NOBITS, 4,324,353
+  non-allocated, 3,040 of container headers and 2,371 of padding - 20,543,736 exactly.
+- AC: no process is spawned. There is nothing in the module that could spawn one.
+- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/read/ElfReader.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/read/Bytes.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/read/Binary.kt`
+
+**Done.** Twelve tests over a hand-built ELF fixture
+(`core/src/commonTest/kotlin/io/github/youndie/razves/fixture/ElfBuilder.kt`) and two against the
+real subject (`core/src/jvmTest/kotlin/io/github/youndie/razves/read/RealBinaryTest.kt`), the second
+pinned to the figures the research recorded and skipping by name when the binary is absent.
+
+**What it cost that the item did not predict:** the symbol table needs three exclusions nobody thinks
+of - `STT_SECTION` entries label a whole section and would double every byte in it, `STT_FILE`
+entries name a source file, and `SHN_ABS` and above are not sections at all.
