@@ -95,12 +95,16 @@ to one decimal place are unaffected by it.
 
 And the attributed bytes, by origin:
 
-| Subject | Kotlin | C / unmangled | Rust | C++ (konan runtime + libc++) |
-|---|---|---|---|---|
-| `distribution` release | 5,131,534 (39.7%) | 6,339,537 (49.1%) | 1,263,517 (9.8%) | 182,708 (1.4%) |
-| `distribution` debug | 10,047,536 (54.5%) | 6,843,749 (37.1%) | 1,263,517 (6.9%) | 268,799 (1.5%) |
-| `distribution-sqlite` release | 5,131,161 (36.6%) | 8,012,244 (57.1%) | 715,295 (5.1%) | 179,441 (1.3%) |
-| `cli` release | 3,776,680 (38.3%) | 5,897,438 (59.9%) | — | 178,906 (1.8%) |
+| Subject | Kotlin | C / unmangled | Rust | Kotlin/Native runtime | other C++ |
+|---|---|---|---|---|---|
+| `distribution` release | 5,125,516 (39.7%) | 6,314,800 (49.0%) | 1,263,149 (9.8%) | 40,871 (0.3%) | 134,811 (1.0%) |
+| `distribution` debug | 10,040,972 (54.6%) | 6,818,501 (37.1%) | 1,263,149 (6.8%) | 65,690 (0.3%) | 183,529 (0.9%) |
+| `distribution-sqlite` release | 5,125,151 (36.6%) | 7,985,730 (57.0%) | 714,854 (5.1%) | 40,871 (0.2%) | 131,552 (0.9%) |
+| `cli` release | 3,772,529 (38.3%) | 5,879,939 (59.8%) | 0 | 40,871 (0.4%) | 131,025 (1.3%) |
+
+*This table was re-measured with razves' own grammar when B-05 landed; the figures it first carried
+were sums of recorded sizes with the Kotlin/Native runtime and libc++ in one column. The shares are
+unchanged to a tenth of a percent, and the runtime now has a number of its own — see §1.3.*
 
 | Fact | Where verified |
 |---|---|
@@ -204,6 +208,15 @@ scheme also produces `_ZN…`. Grouping `_ZN` as "konan runtime" attributes abou
 | Rust legacy symbols are distinguishable by the trailing disambiguator `17h<16 hex digits>E` | e.g. `_ZN13sqlx_postgres10connection9establish…17h7c2ac2d78526d9b3E` in that listing |
 | Rust v0 symbols (`_R…`) are also present — 299,916 B over 595 symbols | same run, separated by the `_R` prefix |
 | With `17h…E` split out as Rust, the genuine C++ bucket in that binary falls to 182,708 B (1.4%) | grouping run in §1.2 |
+| **The Kotlin/Native runtime itself is 40,871 B — 0.3% of the attributed bytes** of the Postgres release binary, and 40,871 B of the SQLite one and of the CLI too: the same runtime, to the byte, in three differently-shaped programs | razves' own origin split, once B-05 existed |
+| The Rust in that same binary is 1,263,149 B, **31 times** the runtime it would have been charged to | same run |
+
+**Correction found while implementing M1 (B-05).** "The genuine C++ bucket falls to 182,708 B"
+conflated two things worth separating. Split by the first component of the Itanium nested name,
+that binary holds 40,871 B of Kotlin/Native runtime (`kotlin::`, `konan::`) and 134,811 B of other
+C++. The runtime being 0.3% rather than 1.4% sharpens the point rather than weakening it: reading
+Rust's legacy mangling as C++ would have charged it 1.26 MB, **31 times its real size**, and the
+report would have said the Kotlin/Native runtime was the third-largest thing in the binary.
 
 **Consequence 3.** 26.7% of the attributed bytes carry names with **no mangling scheme at all** —
 `ecp_nistz256_precomputed`, `nid_objs`, `sha1_multi_block`, `huff_decode_table`, `__unnamed_3673`.

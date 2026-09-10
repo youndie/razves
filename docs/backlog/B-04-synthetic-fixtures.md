@@ -4,14 +4,22 @@ title: "Synthetic binaries whose attribution is known by construction"
 status: open
 priority: P0
 size: M
-stage: stage-0-readers
+stage: stage-1-attribution
 epic: feature-size-report
+blocked_by: [B-05, B-07]
 ---
 
 # B-04 — Synthetic binaries whose attribution is known by construction
 
 [B-02](B-02-reconciliation-invariant.md) proves the attribution is complete. Nothing yet proves it
 is *right*: a symbol charged to the wrong package reconciles perfectly.
+
+**Re-staged from `stage-0-readers` when it came up.** Its first acceptance criterion is about
+per-package totals, and packages do not exist until [B-05](B-05-mangling-grammar.md) and
+[B-07](B-07-kotlin-packages.md) do — there is nothing for a compiled fixture to be checked against
+before then. The item was written as stage-0 because building a fixture *looks* like reader work.
+It is not: the fixture's whole value is verifying that attribution lands in the right place, and
+until there are places, it can only restate what the reader already said.
 
 - **The decision and its reason.** The test suite compiles small Kotlin sources into a native
   binary whose functions have distinct, known sizes in known packages, and asserts the per-package

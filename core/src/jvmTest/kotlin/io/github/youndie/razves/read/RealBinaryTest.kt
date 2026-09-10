@@ -1,5 +1,7 @@
 package io.github.youndie.razves.read
 
+import io.github.youndie.razves.attribute.Mangling
+import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.report.Attribution
 import java.io.File
 import kotlin.test.Test
@@ -154,6 +156,42 @@ class RealBinaryTest {
                 appendLine("  __TEXT,__text cover   ${(text.coverage * 1000).toInt() / 10.0}%")
             },
         )
+    }
+
+    @Test
+    fun theOriginSplitOfARealReleaseBinary() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val r = Attribution.of(ElfReader.read(file.readBytes(), file.name))
+
+        val byOrigin =
+            r.sections
+                .flatMap { it.owners }
+                .groupBy { Mangling.originOf(it.symbol.name) }
+                .mapValues { (_, extents) -> extents.sumOf { it.bytes } }
+        val total = byOrigin.values.sum()
+
+        println("origin split of ${file.name} (${r.attributedBytes} attributed):")
+        Origin.entries.forEach { origin ->
+            val bytes = byOrigin[origin] ?: 0
+            println("  ${origin.name.padEnd(16)}$bytes  ${(1000.0 * bytes / total).toInt() / 10.0}%")
+        }
+
+        assertEquals(r.attributedBytes, total, "every attributed byte has an origin")
+        assertTrue(
+            (byOrigin[Origin.KOTLIN_RUNTIME] ?: 0) < (byOrigin[Origin.RUST] ?: 0),
+            "the Kotlin/Native runtime is far smaller than the Rust this binary links; if it is not, " +
+                "Rust's legacy mangling is being read as C++ and charged to the runtime",
+        )
+
+        if (file.length() != MEASURED_FILE_SIZE) return
+        // Measured on 2026-09-11 and written into research §1.2. The runtime figure is the one worth
+        // pinning: it is what Rust's legacy mangling would have been charged to, and it is 31 times
+        // smaller than that Rust.
+        assertEquals(5_125_516L, byOrigin[Origin.KOTLIN], "Kotlin")
+        assertEquals(40_871L, byOrigin[Origin.KOTLIN_RUNTIME], "the Kotlin/Native runtime")
+        assertEquals(1_263_149L, byOrigin[Origin.RUST], "Rust")
+        assertEquals(134_811L, byOrigin[Origin.CXX], "other C++")
+        assertEquals(6_314_800L, byOrigin[Origin.C], "unmangled C")
     }
 
     private fun machOSubject(): File? {
