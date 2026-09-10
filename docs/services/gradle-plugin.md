@@ -1,0 +1,115 @@
+---
+id: gradle-plugin
+title: razves Gradle plugin — sizeReport and the budget gate
+type: service
+repo_url: https://github.com/youndie/razves
+module: gradle-plugin
+tech_stack: [Kotlin, Gradle]
+owner: unassigned
+depends_on:
+  - core
+publishes:
+  - io.github.youndie.razves (plugin marker)
+  - io.github.youndie.razves:gradle-plugin
+---
+
+# razves Gradle plugin
+
+## 1. Responsibility
+
+Supplying the core with the three things only the build knows — **which** binary was linked,
+**which** klibs took part, and **which** static archives came with the cinterop dependencies — and
+turning the resulting report into a build outcome.
+
+Tasks:
+
+| Task | What it does |
+|---|---|
+| `sizeReport` | attributes the target's link output and writes the report |
+| `sizeBudgetCheck` | fails the build on a breached budget or delta; wired into `check` |
+| `sizeBaselineWrite` | rewrites the committed baseline; deliberately **not** wired into `check` |
+| `sizeDiff` | compares two reports or a report against the baseline |
+
+What it deliberately does **not** do: any attribution of its own. Everything interesting lives in
+[core](core.md), so it is testable without a Gradle daemon.
+
+## 2. API contracts
+
+* **DSL:** the `binarySize { }` extension —
+  `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/BinarySizeExtension.kt`. Contract
+  and rules in [feature-size-budget-gate](../features/feature-size-budget-gate.md).
+* **Baseline file:** the core's serialised report; the plugin owns only its location.
+* **Plugin id:** `io.github.youndie.razves`, applied per project, wiring itself to every
+  `executable` binary of every Kotlin/Native target present.
+
+## 2a. Code anchors
+
+| File | What is there |
+|---|---|
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` | task registration and wiring to the link tasks |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/BinarySizeExtension.kt` | the DSL and its units |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeReportTask.kt` | inputs, outputs, cacheability |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeBudgetCheckTask.kt` | the comparison and the failure message |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/Klibs.kt` | resolving the compilation's klib set |
+| `gradle-plugin/src/test/kotlin/io/github/youndie/razves/gradle/` | TestKit builds |
+
+## 3. How it is built
+
+**The klib set comes from the compilation, resolved lazily.** The plugin needs the artifacts on the
+native compilation's classpath, and it must ask for them as a lazily-resolved `FileCollection` — a
+plugin that resolves a configuration while the build is being configured breaks the configuration
+cache and forces a resolution nobody asked for. What the plugin knows and a bare CLI does not is
+*which* klibs; the package-to-module mapping itself lives inside each klib
+([research §1.5](../research/research-architecture.md)) and is read by the core.
+
+**Wiring happens at plugin-application time, not in `afterEvaluate`.** Targets are declared after
+the plugin block, so the registration has to be driven by the target container's `all { }` rather
+than by a single pass once evaluation is done.
+
+**The gate is a separate task from the report.** The report is useful on its own and should not
+fail a build; the gate is what fails it. Splitting them also keeps the report's output an input of
+the gate, which is what makes the gate cacheable.
+
+**The baseline task is not in `check`.** Anything that both verifies and rewrites its own reference
+passes forever. `sborka` makes the same split for `mutationTest`, for the same reason.
+
+## 4. Dependencies
+
+| Kind | Name | What for |
+|---|---|---|
+| Module | [core](core.md) | all attribution |
+| External | Kotlin Gradle Plugin | the native targets, their link tasks and their compilations |
+
+## 5. Infrastructure and deploy
+
+Published to the Gradle Plugin Portal and Maven Central. Version line and publishing come from
+`sborka`'s conventions, like every other repository in this portfolio.
+
+## 6. Local setup
+
+```bash
+~/.claude/bin/wsl-run ./gradlew :gradle-plugin:test
+```
+
+## 7. Configuration
+
+| Key | Description | Required |
+|---|---|---|
+| `binarySize.budget` | absolute ceiling | no |
+| `binarySize.deltaPerChange` | growth against the committed baseline | no |
+| `binarySize.measure` | `fileSize` (default) or `allocated` | no |
+| `binarySize.baseline` | baseline file location | no |
+| `razves.skip` | Gradle property; disables the gate and logs that it did | no |
+
+Do not copy the full list here as it grows — the extension class is the source of truth.
+
+## 8. Quirks
+
+* **Two of the plugin's four tasks are useless without something committed.** `sizeDiff` and the
+  delta half of `sizeBudgetCheck` need a baseline file in the repository. Both fail with the name
+  of the task that creates one rather than passing vacuously.
+* **The gate measures the link output, not what ships.** A project that strips or packs afterwards
+  is being measured on a number 19–21% larger than its artifact
+  ([research §1.2](../research/research-architecture.md)).
+* **`razves.skip` must log.** A silent bypass property becomes the repository's default state
+  within a quarter and nobody remembers it is set.
