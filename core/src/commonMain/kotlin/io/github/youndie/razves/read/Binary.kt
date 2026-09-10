@@ -26,8 +26,17 @@ public enum class SectionKind {
     /** In memory, no file bytes: `.bss`, `.tbss`, `.relro_padding`. */
     ALLOCATED_NOBITS,
 
-    /** File bytes, no address: `.symtab`, `.strtab`, `.comment`, `.debug_*`. */
-    NOT_ALLOCATED,
+    /**
+     * File bytes that are metadata rather than program content: ELF's `.symtab`, `.strtab`,
+     * `.comment` and `.debug_*`, and everything a Mach-O keeps in `__LINKEDIT`.
+     *
+     * Classified by role rather than by whether the loader maps it. `__LINKEDIT` *is* mapped, so
+     * "allocated" would be the letter of the format — but it holds the symbol table, the string
+     * table and the fixup data, which is exactly what ELF puts in non-allocated sections and exactly
+     * what `strip` removes. Classifying by role is what lets a Mach-O report and an ELF report
+     * answer the same question.
+     */
+    METADATA,
 }
 
 /**
@@ -94,6 +103,15 @@ public data class BinaryImage(
     val symbols: List<Symbol>,
     /** False when the container carried no symbol table at all: a stripped binary. */
     val hasSymbolTable: Boolean,
+    /**
+     * Whether the format enumerates every byte-bearing region of the file.
+     *
+     * True for ELF: the section header table lists every section, so a byte belonging to nothing is
+     * a reader defect and the coverage walk refuses it. False for Mach-O, whose link-edit area is
+     * described by load commands razves does not all parse — there, a byte no named region claims is
+     * reported as unparsed, which is a row of the report rather than a failure.
+     */
+    val coversEveryFileByte: Boolean,
 ) {
     /** Bytes taken by the container's own tables rather than by anything it describes. */
     public val headerBytes: Long get() = containerRegions.sumOf { it.size }

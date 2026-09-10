@@ -29,10 +29,11 @@ class ReconciliationTest {
         assertEquals(bytes.size.toLong(), r.fileSize)
         assertEquals(
             r.fileSize,
-            r.headerBytes + r.allocatedBytes + r.notAllocatedBytes + r.interRegionPadding,
+            r.headerBytes + r.allocatedBytes + r.metadataBytes + r.interRegionPadding + r.unparsedBytes,
             "the file-size identity is the oracle; if it needs a tolerance, the reader is wrong",
         )
         assertTrue(r.interRegionPadding >= 0)
+        assertEquals(0, r.unparsedBytes, "an ELF section header table lists every region there is")
     }
 
     @Test
@@ -47,7 +48,7 @@ class ReconciliationTest {
 
         assertEquals(4096, r.nobitsBytes)
         assertEquals(r.allocatedBytes + 4096, r.virtualSize)
-        assertTrue(r.virtualSize > r.fileSize - r.notAllocatedBytes - r.headerBytes)
+        assertTrue(r.virtualSize > r.fileSize - r.metadataBytes - r.headerBytes)
     }
 
     @Test
@@ -226,6 +227,7 @@ class ReconciliationTest {
                 sections = listOf(section),
                 symbols = emptyList(),
                 hasSymbolTable = true,
+                coversEveryFileByte = true,
             )
         val tooMuch = SectionAttribution(section, listOf(SymbolExtent(Symbol("x", 0x1000, 200, 0), 200)))
 

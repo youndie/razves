@@ -220,6 +220,8 @@ the rest guessing. This is a hard limit on name-based attribution and drives
 | On ELF the same flag yields a size for 57,905 of 58,164 symbols (the 259 without one are undefined `U` and weak-undefined `w` entries) | the same command on the `linuxX64` release binary |
 | Deriving Mach-O sizes by sorting defined symbols by address and taking the delta to the next symbol, clamped at the end of the containing section, attributes 8,863,076 B of 8,957,547 B of allocated sections — 98.9% | address-delta run over `test.kexe` (50,360 defined symbols, 33 sections) |
 | Mach-O has two distinct sections both named `__const` (in `__TEXT` and in `__DATA_CONST`), at different addresses | `llvm-size --format=sysv` on the same binary lists `__const` twice, at 4301131776 and 4302405632 |
+| A Mach-O keeps its symbol table, string table, chained fixups, export trie, function starts, data-in-code and code signature in `__LINKEDIT`, described by load commands rather than by any section table; on the measured subject those are 4,833,032 B — 35.2% of the file | load-command sweep of `test.kexe`, 2026-09-11 |
+| Every gap between adjacent file regions of that binary is explained either by the region's own alignment or by the 16 KiB page a segment starts on: 38 named regions, 33,017 B of padding, **zero bytes unaccounted for** | razves' own coverage walk over `test.kexe`, once B-03 existed |
 
 **Consequence 1.** There are two size algorithms, not one. ELF carries `st_size` in the symbol
 table; Mach-O's `nlist` has no size field, so the size of a symbol is the distance to the next one.
@@ -235,6 +237,22 @@ Apple targets.
 **Consequence 3.** The address-delta pass needs the section boundary as a clamp, or the last
 symbol in a section absorbs the gap to the next section. Verified: without the clamp the same run
 attributes more than the section holds.
+
+**Correction found while implementing M0 (B-03).** The 8,863,076 / 8,957,547 figures above were
+produced by a throwaway script that counted zero-fill sections among the allocated bytes and did not
+skip `N_STAB` debugger entries. razves reads the same binary as 8,781,288 attributed of 8,875,759
+allocated — the same 98.9%, from cleaner halves. The conclusion the number was cited for is
+unchanged; the halves are worth correcting because a later comparison against them would not be.
+
+**A fourth consequence, found by building it.** Mach-O cannot be reconciled the way ELF is. An ELF
+section header table lists every byte-bearing region in the file, so a byte belonging to nothing is a
+reader defect and razves refuses it. Mach-O's link-edit is described by load commands, and a reader
+that has not implemented one of them will legitimately not know what some bytes are. So the report
+carries an explicit `unparsed` row on Apple targets, separate from padding: a line saying "razves
+did not account for these bytes" is honest, and folding them into padding or into a neighbouring
+section is exactly the failure the reconciliation exists to prevent. As of B-03 that row reads zero
+on the measured subject — every one of its 38 regions is named — but the row stays, because the next
+Apple toolchain release is entitled to add a load command razves has never heard of.
 
 ### 1.5 Package → module comes from the klib, not from Gradle
 

@@ -52,6 +52,16 @@ internal class Bytes(
         return acc
     }
 
+    /**
+     * A fixed-width, NUL-padded name of at most 16 bytes: Mach-O's `segname` and `sectname`, which
+     * are not NUL-terminated when the name fills the field.
+     */
+    fun cString16(at: Int): String {
+        var end = at
+        while (end < at + 16 && end < data.size && data[end].toInt() != 0) end++
+        return data.decodeToString(at, end)
+    }
+
     /** A NUL-terminated string starting at [at]; used for the section and symbol string tables. */
     fun cString(at: Int): String {
         require(at in data.indices) { "string offset $at is outside the file" }

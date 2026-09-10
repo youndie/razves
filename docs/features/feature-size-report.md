@@ -114,14 +114,26 @@ dynamic-linking metadata.
 * **And:** the same run twice produces the same owner, so a diff of a binary against itself is empty.
 * **Automated:** `ReconciliationTest.overlappingSymbolsAreChargedOnce`
 
-### Scenario: the totals reconcile on a Mach-O binary — *target*
+### Scenario: the totals reconcile on a Mach-O binary
 * **Given:** a `macosArm64` Kotlin/Native executable.
 * **When:** razves reports on it.
-* **Then:** the same two identities hold.
-* **And:** the report header states that sizes are address-derived.
-* **And:** attributed coverage of the allocated sections is at least 95% — the address-delta run in
-  [research §1.4](../research/research-architecture.md) reached 98.9%, and a large drop means the
-  section clamp or the segment keying regressed.
+* **Then:** the same identities hold, with `unparsed` as an explicit term.
+* **And:** the report states that sizes are address-derived.
+* **And:** attributed coverage of `__TEXT,__text` is over 90%; measured 100% on the subject, because
+  an address-delta charges every byte between two symbols to the earlier one.
+* **And:** razves fails to account for less than 1% of the file; measured 0% — all 38 regions of the
+  subject are named.
+* **Automated:** `RealBinaryTest.theIdentitiesHoldOnARealMachOBinary` — skips, by name, when the
+  subject is not on the machine.
+
+### Scenario: a Mach-O symbol's size is the distance to the next one
+* **Given:** two symbols in one section, 100 bytes apart, in a section that ends 200 bytes after the
+  second.
+* **When:** razves sizes them.
+* **Then:** the first is 100 bytes and the second is 200 — clamped at the section's end rather than
+  running into whatever follows.
+* **Automated:** `MachOReaderTest.symbolSizesAreTheDistanceToTheNextSymbol`,
+  `MachOReaderTest.theLastSymbolIsClampedAtTheEndOfItsSection`
 
 ### Scenario: a synthetic binary attributes to the byte — *target*
 * **Given:** a binary compiled by the test suite from Kotlin sources whose functions have known,
@@ -129,11 +141,13 @@ dynamic-linking metadata.
 * **When:** razves reports on it.
 * **Then:** each package's attributed total equals the sum of its functions' sizes, exactly.
 
-### Scenario: two sections with the same name do not collide — *target*
+### Scenario: two sections with the same name do not collide
 * **Given:** a Mach-O binary carrying both `__TEXT,__const` and `__DATA_CONST,__const`.
 * **When:** razves reads the section table.
 * **Then:** the two are distinct entries keyed by `(segment, section)`, and their sizes are
   reported separately rather than one overwriting the other.
+* **Automated:** `MachOReaderTest.twoSectionsNamedConstStayTwoSections`, and the real-binary check in
+  `RealBinaryTest.theIdentitiesHoldOnARealMachOBinary`
 
 ### Scenario: Rust legacy mangling is not attributed to the Kotlin/Native runtime — *target*
 * **Given:** a binary linking `sqlx4k`, whose Rust core is compiled with the legacy `_ZN…` scheme.

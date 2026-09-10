@@ -100,6 +100,9 @@ public object ElfReader {
             sections = sections,
             symbols = symbols,
             hasSymbolTable = symtabIndex >= 0,
+            // The section header table lists every byte-bearing region of an ELF file, so a byte
+            // belonging to nothing is a defect in this reader rather than a property of the binary.
+            coversEveryFileByte = true,
         )
     }
 
@@ -130,7 +133,7 @@ public object ElfReader {
 
     private fun kindOf(h: SectionHeader): SectionKind =
         when {
-            h.flags and SHF_ALLOC == 0L -> SectionKind.NOT_ALLOCATED
+            h.flags and SHF_ALLOC == 0L -> SectionKind.METADATA
             h.type == SHT_NOBITS -> SectionKind.ALLOCATED_NOBITS
             else -> SectionKind.ALLOCATED
         }

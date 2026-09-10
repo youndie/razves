@@ -37,11 +37,10 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (18)
+## Open (17)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-03](docs/backlog/B-03-macho-reader.md) `[ ]` | Mach-O reader with address-delta sizing, clamped at the section end | P0 | M | - |
 | [B-04](docs/backlog/B-04-synthetic-fixtures.md) `[ ]` | Synthetic binaries whose attribution is known by construction | P0 | M | - |
 | [B-05](docs/backlog/B-05-mangling-grammar.md) `[ ]` | The mangling grammar, with Rust tested before C++ | P0 | M | - |
 | [B-14](docs/backlog/B-14-budget-gate.md) `[ ]` | The budget gate, and a failure message that names the rows that moved | P0 | M | B-13 |
@@ -60,12 +59,13 @@ layer, so re-prioritising an item must never move its file.
 | [B-20](docs/backlog/B-20-decide-the-budget-unit.md) `[?]` | Decide what the budget is measured on | P2 | XS | B-16 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 
-## Closed (2)
+## Closed (3)
 
 **Read the file, and prove you read all of it**
 
 - [B-01](docs/backlog/B-01-elf-reader.md) `[x]` - Read ELF section headers and .symtab without a subprocess
 - [B-02](docs/backlog/B-02-reconciliation-invariant.md) `[x]` - The report cannot be constructed with totals that do not add up
+- [B-03](docs/backlog/B-03-macho-reader.md) `[x]` - Mach-O reader with address-delta sizing, clamped at the section end
 
 <!-- END INDEX -->
 

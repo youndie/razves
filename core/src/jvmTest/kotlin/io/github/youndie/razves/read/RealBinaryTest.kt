@@ -48,7 +48,7 @@ class RealBinaryTest {
         assertEquals(file.length(), r.fileSize)
         assertEquals(
             r.fileSize,
-            r.headerBytes + r.allocatedBytes + r.notAllocatedBytes + r.interRegionPadding,
+            r.headerBytes + r.allocatedBytes + r.metadataBytes + r.interRegionPadding + r.unparsedBytes,
         )
         assertEquals(r.allocatedBytes, r.attributedBytes + r.unattributedBytes)
         assertTrue(image.hasSymbolTable, "${file.name} is stripped; razves has nothing to read in it")
@@ -72,7 +72,8 @@ class RealBinaryTest {
                 appendLine("  container headers     ${r.headerBytes}")
                 appendLine("  allocated             ${r.allocatedBytes}")
                 appendLine("  NOBITS (memory only)  ${r.nobitsBytes}")
-                appendLine("  not allocated         ${r.notAllocatedBytes}")
+                appendLine("  metadata              ${r.metadataBytes}")
+                appendLine("  unparsed              ${r.unparsedBytes}")
                 appendLine("  inter-region padding  ${r.interRegionPadding}")
                 appendLine("  attributed            ${r.attributedBytes}")
                 appendLine("  unattributed          ${r.unattributedBytes}")
@@ -99,12 +100,76 @@ class RealBinaryTest {
         assertEquals(MEASURED_ALLOCATED_IN_FILE, r.allocatedBytes, "allocated section bytes that are in the file")
         assertEquals(MEASURED_NOBITS, r.nobitsBytes, "NOBITS bytes")
         assertEquals(MEASURED_ALLOCATED_TOTAL, r.virtualSize, "what llvm-size called the allocated total")
-        assertEquals(MEASURED_NOT_ALLOCATED, r.notAllocatedBytes, "non-allocated section bytes")
+        assertEquals(MEASURED_METADATA, r.metadataBytes, "metadata section bytes")
         assertEquals(MEASURED_HEADERS_AND_PADDING, r.headerBytes + r.interRegionPadding, "headers plus padding")
+    }
+
+    @Test
+    fun theIdentitiesHoldOnARealMachOBinary() {
+        val file = machOSubject() ?: return skipped("no Mach-O subject binary found")
+        val image = MachOReader.read(file.readBytes(), file.name)
+        val r = Attribution.of(image)
+
+        assertEquals(file.length(), r.fileSize)
+        assertEquals(
+            r.fileSize,
+            r.headerBytes + r.allocatedBytes + r.metadataBytes + r.interRegionPadding + r.unparsedBytes,
+        )
+        assertEquals(SizeAlgorithm.ADDRESS_DELTA, image.sizeAlgorithm)
+
+        val text = assertNotNull(r.sections.firstOrNull { it.section.qualifiedName == "__TEXT,__text" })
+        assertTrue(
+            text.coverage > 0.9,
+            "symbols should claim almost all of __TEXT,__text; got ${(text.coverage * 100).toInt()}%",
+        )
+
+        // Mach-O's link-edit is described by load commands rather than by a table of every region, and
+        // razves does not parse all of them. The bound is what the reader is allowed to not know:
+        // measured at 0.24% of a real macosArm64 binary on 2026-09-11, before this test existed.
+        val unparsedShare = r.unparsedBytes.toDouble() / r.fileSize
+        assertTrue(
+            unparsedShare < 0.01,
+            "razves failed to account for ${(unparsedShare * 1000).toInt() / 10.0}% of ${file.name}, " +
+                "which is more link-edit than it is allowed not to know",
+        )
+
+        val consts = r.sections.filter { it.section.name == "__const" }
+        assertTrue(
+            consts.size >= 2,
+            "a Kotlin/Native Mach-O carries __const in more than one segment; a name-keyed map loses one",
+        )
+        assertEquals(consts.size, consts.map { it.section.qualifiedName }.distinct().size)
+
+        println(
+            buildString {
+                appendLine("razves read ${file.name}")
+                appendLine("  file                  ${r.fileSize}")
+                appendLine("  header+load commands  ${r.headerBytes}")
+                appendLine("  allocated             ${r.allocatedBytes}")
+                appendLine("  metadata (__LINKEDIT) ${r.metadataBytes}")
+                appendLine("  padding               ${r.interRegionPadding}")
+                appendLine("  unparsed              ${r.unparsedBytes}")
+                appendLine("  attributed            ${r.attributedBytes}")
+                appendLine("  unattributed          ${r.unattributedBytes}")
+                appendLine("  __TEXT,__text cover   ${(text.coverage * 1000).toInt() / 10.0}%")
+            },
+        )
+    }
+
+    private fun machOSubject(): File? {
+        val configured = System.getenv(MACHO_SUBJECT_ENV) ?: System.getProperty(MACHO_SUBJECT_ENV)
+        return (listOfNotNull(configured) + DEFAULT_MACHO_CANDIDATES).map { File(it) }.firstOrNull { it.isFile }
     }
 
     private companion object {
         const val SUBJECT_ENV = "RAZVES_ELF_SUBJECT"
+        const val MACHO_SUBJECT_ENV = "RAZVES_MACHO_SUBJECT"
+
+        val DEFAULT_MACHO_CANDIDATES =
+            listOf(
+                "../shildik/core/build/bin/macosArm64/debugTest/test.kexe",
+                "../../shildik/core/build/bin/macosArm64/debugTest/test.kexe",
+            )
 
         val DEFAULT_CANDIDATES =
             listOf(
@@ -119,7 +184,7 @@ class RealBinaryTest {
         const val MEASURED_ALLOCATED_TOTAL = 16_241_668L
         const val MEASURED_ALLOCATED_IN_FILE = 16_213_972L
         const val MEASURED_NOBITS = 27_696L
-        const val MEASURED_NOT_ALLOCATED = 4_324_353L
+        const val MEASURED_METADATA = 4_324_353L
         const val MEASURED_HEADERS_AND_PADDING = 5_411L
     }
 }

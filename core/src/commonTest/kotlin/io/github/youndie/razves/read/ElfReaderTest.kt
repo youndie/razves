@@ -39,7 +39,7 @@ class ElfReaderTest {
         assertEquals(0, bss.fileBytes, "a NOBITS section has a size and costs no file bytes")
 
         val comment = image.sections.single { it.name == ".comment" }
-        assertEquals(SectionKind.NOT_ALLOCATED, comment.kind)
+        assertEquals(SectionKind.METADATA, comment.kind)
         assertEquals(32, comment.fileBytes)
     }
 
