@@ -29,6 +29,11 @@ include(":fixture")
 // a single binary.
 include(":cli")
 
+// The in-process half of the profiler: a C signal handler behind cinterop and a thin wrapper. The
+// only module here that is ever linked into a program razves did not build - which is why it is a
+// module and not a package inside `core`, and why nothing else depends on it.
+include(":sampler")
+
 // The gate. Its one irreplaceable job is supplying the link classpath: a directory sweep picks up
 // transformed copies of a dependency and makes every package it declares look declared twice.
 include(":gradle-plugin")

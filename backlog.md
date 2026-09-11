@@ -38,12 +38,11 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (10)
+## Open (9)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-29](docs/backlog/B-29-sampling-cost-stand.md) `[ ]` | A stand that can resolve what sampling costs | P1 | M | - |
-| [B-30](docs/backlog/B-30-in-process-sampler.md) `[ ]` | The in-process sampler, in C, behind cinterop | P1 | M | - |
 | [B-31](docs/backlog/B-31-symbol-at-address.md) `[ ]` | Address to symbol, in core | P1 | S | - |
 | [B-32](docs/backlog/B-32-aggregate-samples.md) `[ ]` | Aggregate samples by origin, package and module | P1 | M | B-30, B-31 |
 | [B-33](docs/backlog/B-33-pprof-writer.md) `[ ]` | Write pprof, so existing viewers work | P1 | M | B-32 |
@@ -53,7 +52,7 @@ layer, so re-prioritising an item must never move its file.
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (26)
+## Closed (27)
 
 **Read the file, and prove you read all of it**
 
@@ -92,6 +91,10 @@ layer, so re-prioritising an item must never move its file.
 - [B-16](docs/backlog/B-16-run-on-the-three-subjects.md) `[x]` - Report on shildik, booblik and telek, and write the article from the numbers
 - [B-17](docs/backlog/B-17-sborka-convention.md) `[x]` - A sborka convention that applies the gate from one property
 - [B-25](docs/backlog/B-25-publish-razves.md) `[x]` - Publish razves where another repository can reach it
+
+**Say where the time went, out of the same table**
+
+- [B-30](docs/backlog/B-30-in-process-sampler.md) `[x]` - The in-process sampler, in C, behind cinterop
 
 <!-- END INDEX -->
 

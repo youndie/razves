@@ -1,0 +1,124 @@
+package = razves.sampler.native
+# POSIX timers live in librt on the glibc this toolchain links against; without this the link
+# fails with undefined timer_create, naming the function and not the library it is in.
+linkerOpts.linux = -lrt
+---
+// THE ONLY CODE RAZVES PUTS INSIDE SOMEBODY ELSE PROCESS, and it is C on purpose.
+//
+// A signal handler written in Kotlin hangs. Measured, not feared: 3 runs in 10 at 100 Hz and 8 in 10
+// at 1 kHz, with two crashes on top, and the failures stop entirely when the sampled workload stops
+// allocating - the handler deadlocks against the allocator it interrupted. It is not the body of the
+// handler: one that only increments an atomic fails just as often, because what is unsafe is
+// entering the Kotlin runtime from a signal at all. See docs/research/research-profiler.md 1.1.
+//
+// So nothing below touches Kotlin, allocates, takes a lock, or calls anything that is not on the
+// async-signal-safe list. What it does is write one stack into a fixed ring and advance a counter.
+
+#define _GNU_SOURCE 1
+#include <signal.h>
+#include <sys/time.h>
+#include <time.h>
+#include <ucontext.h>
+#include <stdint.h>
+#include <string.h>
+#include <execinfo.h>
+
+#define RAZVES_SLOTS 4096
+#define RAZVES_DEPTH 64
+
+// One sample: how many frames were captured, then the frames, leaf first.
+static volatile uint32_t razves_depth[RAZVES_SLOTS];
+static volatile uint64_t razves_frames[RAZVES_SLOTS][RAZVES_DEPTH];
+
+// Written only by the handler, read only after it is stopped. `taken` counts every signal delivered
+// and `dropped` every sample the reader had not consumed - a profile that lost samples has to say
+// so rather than look complete.
+static volatile uint64_t razves_taken = 0;
+static volatile uint64_t razves_dropped = 0;
+static volatile uint64_t razves_read = 0;
+
+static timer_t razves_timer;
+static int razves_armed = 0;
+
+static void razves_handler(int sig, siginfo_t *info, void *ctx) {
+    (void) sig;
+    (void) info;
+    (void) ctx;
+    void *buf[RAZVES_DEPTH];
+    int n = backtrace(buf, RAZVES_DEPTH);
+    uint64_t t = razves_taken;
+    if (t - razves_read >= RAZVES_SLOTS) {
+        razves_dropped = razves_dropped + 1;
+        razves_taken = t + 1;
+        return;
+    }
+    uint32_t slot = (uint32_t) (t % RAZVES_SLOTS);
+    for (int i = 0; i < n; i++) razves_frames[slot][i] = (uint64_t) buf[i];
+    razves_depth[slot] = (uint32_t) n;
+    razves_taken = t + 1;
+}
+
+// backtrace() is NOT async-signal-safe on its first call, which loads libgcc. Called once here,
+// before the timer is armed, so that the first sample cannot deadlock in the dynamic loader.
+static void razves_warm(void) {
+    void *buf[8];
+    backtrace(buf, 8);
+}
+
+// clock: 0 = CLOCK_MONOTONIC (wall time - fires whether the thread runs or not, and is the only one
+// that exceeds the scheduler tick: 8,204 Hz delivered for 10,000 requested), 1 =
+// CLOCK_THREAD_CPUTIME_ID (this thread only while it runs, and capped at about 200 Hz because a CPU
+// clock advances on the tick). Research 1.3 measured both.
+static int razves_start(int hz, int clock) {
+    if (hz <= 0) return -1;
+    if (razves_armed) return -2;
+    razves_warm();
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = razves_handler;
+    sa.sa_flags = SA_SIGINFO | SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGPROF, &sa, NULL) != 0) return -3;
+
+    struct sigevent sev;
+    memset(&sev, 0, sizeof(sev));
+    sev.sigev_notify = SIGEV_SIGNAL;
+    sev.sigev_signo = SIGPROF;
+    clockid_t id = clock == 1 ? CLOCK_THREAD_CPUTIME_ID : CLOCK_MONOTONIC;
+    if (timer_create(id, &sev, &razves_timer) != 0) return -4;
+
+    long ns = 1000000000L / hz;
+    struct itimerspec its;
+    its.it_interval.tv_sec = ns / 1000000000L;
+    its.it_interval.tv_nsec = ns % 1000000000L;
+    its.it_value = its.it_interval;
+    if (timer_settime(razves_timer, 0, &its, NULL) != 0) return -5;
+    razves_armed = 1;
+    return 0;
+}
+
+// Idempotent: stopping a sampler that was never started is not an error, and stopping twice must not
+// delete a timer that is no longer there.
+static void razves_stop(void) {
+    if (!razves_armed) return;
+    struct itimerspec off;
+    memset(&off, 0, sizeof(off));
+    timer_settime(razves_timer, 0, &off, NULL);
+    timer_delete(razves_timer);
+    signal(SIGPROF, SIG_IGN);
+    razves_armed = 0;
+}
+
+static uint64_t razves_taken_count(void) { return razves_taken; }
+static uint64_t razves_dropped_count(void) { return razves_dropped; }
+static int razves_is_armed(void) { return razves_armed; }
+
+// Reading is the consumer side of the ring: only what the handler has finished writing, and the read
+// cursor is what tells the handler a slot is free again.
+static uint32_t razves_depth_at(uint64_t index) { return razves_depth[index % RAZVES_SLOTS]; }
+static uint64_t razves_frame_at(uint64_t index, uint32_t frame) {
+    return razves_frames[index % RAZVES_SLOTS][frame % RAZVES_DEPTH];
+}
+static void razves_mark_read(uint64_t upTo) { razves_read = upTo; }
+static uint64_t razves_slots(void) { return RAZVES_SLOTS; }
