@@ -28,6 +28,14 @@ public class SizeReport internal constructor(
      * and the report says so rather than leaving a reader to wonder.
      */
     public val modules: List<ModuleRow> = emptyList(),
+    /**
+     * The bytes that are not Kotlin, split by the static archive that defines them.
+     *
+     * The layer the brief did not think was possible. A C symbol has no namespace, so no grammar can
+     * place it - but the archive that defines it can, and a cinterop klib carries its archives. This
+     * is what turns "unmangled C: 6.3 MB" into "libcrypto.a: 4 MB".
+     */
+    public val natives: List<ModuleRow> = emptyList(),
 ) {
     /** False when no klibs were supplied: the report stops at package level and says which. */
     public val hasModuleAttribution: Boolean = modules.isNotEmpty()
@@ -57,6 +65,14 @@ public class SizeReport internal constructor(
         }
         require(modules.map { it.name }.distinct().size == modules.size) {
             "a module appears twice in the report for ${image.name}"
+        }
+        // The fifth identity. Everything that is not Kotlin has an archive row, even if that row says
+        // no archive claims it - the same rule as everywhere else in this report.
+        require(
+            natives.isEmpty() || natives.sumOf { it.bytes } == reconciliation.attributedBytes - bytesOf(Origin.KOTLIN),
+        ) {
+            "the archive split of ${image.name} does not add up to its non-Kotlin bytes: " +
+                "${natives.sumOf { it.bytes }} != ${reconciliation.attributedBytes - bytesOf(Origin.KOTLIN)}"
         }
     }
 

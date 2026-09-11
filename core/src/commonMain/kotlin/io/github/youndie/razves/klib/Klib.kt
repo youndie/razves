@@ -15,6 +15,15 @@ public data class Klib(
     /** `linux_x64`, `macos_arm64`, … — empty for a metadata-only klib. */
     public val targets: List<String>,
     public val packages: Set<String>,
+    /**
+     * The static archives this klib carries, by name, with every symbol each one defines.
+     *
+     * A cinterop klib ships them at the `included` directory under `default/targets/<target>` - which is how OpenSSL
+     * reaches a Kotlin/Native binary, and the only thing that can say so: the C ABI has no
+     * namespaces, so 26.7% of the attributed bytes of a release binary carry names no grammar can
+     * place.
+     */
+    public val archives: Map<String, Set<String>> = emptyMap(),
 )
 
 /**
@@ -30,6 +39,7 @@ public object KlibReader {
     private const val PACKAGE_MARKER = "/package_"
     private const val UNIQUE_NAME = "unique_name"
     private const val NATIVE_TARGETS = "native_targets"
+    private const val ARCHIVE_SUFFIX = ".a"
     private val EMPTY_FRAGMENT_MARKER = byteArrayOf(0x0A, 0x00, 0x12, 0x00, 0x1A, 0x00)
 
     /** A klib as a single archive. */
@@ -80,7 +90,29 @@ public object KlibReader {
             uniqueName = uniqueName,
             targets = properties[NATIVE_TARGETS]?.split(' ')?.filter { it.isNotBlank() }.orEmpty(),
             packages = nonEmptyPackages(entryNames, contentOf),
+            archives = archives(entryNames, contentOf),
         )
+    }
+
+    /**
+     * Every `.a` the klib carries, read once for its symbol index.
+     *
+     * Only archives, and only under the target directories a cinterop klib puts them in: the rest of
+     * a klib is metadata and IR, and reading a 12 MB member to discover it is not an archive is the
+     * kind of cost that turns a report into a nightly job.
+     */
+    private fun archives(
+        entryNames: List<String>,
+        contentOf: (String) -> ByteArray?,
+    ): Map<String, Set<String>> {
+        val out = mutableMapOf<String, Set<String>>()
+        for (entryName in entryNames) {
+            if (!entryName.endsWith(ARCHIVE_SUFFIX)) continue
+            val content = contentOf(entryName) ?: continue
+            val symbols = Archive.definedSymbols(content)
+            if (symbols.isNotEmpty()) out[entryName.substringAfterLast('/')] = symbols
+        }
+        return out
     }
 
     /**

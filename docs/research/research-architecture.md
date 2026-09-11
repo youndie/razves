@@ -512,10 +512,11 @@ Rejected: **prefix heuristics as the primary mechanism.** They stay as the label
 symbols no archive claims, and the report says how many bytes were attributed each way, because a
 heuristic whose share is invisible is a heuristic nobody audits.
 
-Hypothesis, to check in M2: the archive index is enough to attribute the great majority of the
-unmangled C bytes in the `shildik` release binaries. If it is not — if OpenSSL arrives through a
-prebuilt klib that does not carry the archive — this decision degrades to the fallback and the
-report says so honestly rather than inventing an owner.
+**Checked in M2, and the hypothesis was half right.** The archive index is enough for 41% of the
+non-Kotlin bytes and structurally cannot reach the rest: it names what an object exports, and the
+largest unplaced things are static data tables. The feared failure — a prebuilt klib carrying no
+archive — did not happen; a different limit did, and it has a number and a follow-up rather than a
+fallback.
 
 ### D5. Ambiguous packages are reported as ambiguous, not resolved by a tie-break
 
@@ -624,11 +625,18 @@ name the *rows that moved*, not just the total — "`io.ktor.client` +180 KB, `o
 turns a red build into a decision instead of a nuisance. This is the difference between the gate
 being kept and being commented out, and it is the reason the diff feature is M1 and not M3.
 
-**Open question 1.** Does the archive-membership map of [D4](#d4-attribute-c-symbols-by-static-archive-membership-not-by-name)
-actually reach the OpenSSL bytes in `shildik`? The provider arrives as
-`cryptography-provider-openssl3-prebuilt`, which may ship a prebuilt archive razves can read, or may
-ship something already linked. Settled in M2 by running against the four subject binaries; the
-answer decides whether the C bucket subdivides by library or stays one row.
+**Open question 1 — settled: the archives are there, and they place 41%.** A cinterop klib carries
+its static archives under `default/targets/<target>`, and
+`cryptography-provider-openssl3-prebuilt` ships a 12,737,852-byte `libcrypto.a` that way; eleven
+archives were read off `shildik`'s link classpath. Of the subject's **7,753,631 non-Kotlin bytes,
+3,178,771 land in an archive** — and the largest row of those is the finding: **2,366,786 bytes are
+defined by *two* OpenSSL builds**, one from the cryptography provider and one from
+`ktor-client-curl`, 11.5% of the whole binary, which razves reports as ambiguous rather than
+assigning. The remaining 59% has a precise cause rather than a shrug: an `ar` index lists only what
+an object *exports*, so static data tables with internal linkage — `__unnamed_3673` at 142,096
+bytes, `nid_objs` at 60,040 — and Rust's object-local symbols are physically inside the archives and
+absent from their indexes. Reading each member's own symbol table would place them, at fifty times
+the bytes; that is [B-26](../../backlog.md), opt-in.
 
 **Open question 2 — settled, and the question was wrong.** It asked which measure jitters least and
 expected a week of reports to answer it. **All three are perfectly reproducible** — three clean

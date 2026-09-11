@@ -41,13 +41,13 @@ layer, so re-prioritising an item must never move its file.
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-09](docs/backlog/B-09-c-attribution-by-archive.md) `[?]` | Attribute C symbols to the static archive that defines them | P2 | L | - |
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-25 |
 | [B-25](docs/backlog/B-25-publish-razves.md) `[ ]` | Publish razves where another repository can reach it | P2 | S | B-24 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
+| [B-26](docs/backlog/B-26-archive-members.md) `[ ]` | Place the symbols an archive index cannot name | P3 | M | B-09 |
 
-## Closed (20)
+## Closed (21)
 
 **Read the file, and prove you read all of it**
 
@@ -63,6 +63,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-06](docs/backlog/B-06-origin-buckets.md) `[x]` - Origin buckets and per-section coverage in the report model
 - [B-07](docs/backlog/B-07-kotlin-packages.md) `[x]` - Aggregate Kotlin symbols by package
 - [B-08](docs/backlog/B-08-klib-package-to-module.md) `[x]` - Map package to module from klib manifests, and report ambiguity as ambiguity
+- [B-09](docs/backlog/B-09-c-attribution-by-archive.md) `[x]` - Attribute C symbols to the static archive that defines them
 - [B-10](docs/backlog/B-10-report-renderer.md) `[x]` - Render the report as text and as JSON, coverage next to every conclusion
 - [B-15](docs/backlog/B-15-refuse-stripped-and-mismatched.md) `[x]` - Refuse a stripped binary and a klib set for the wrong target
 - [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[x]` - Attribute NOBITS sections so uninitialised state has an owner

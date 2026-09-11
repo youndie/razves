@@ -215,6 +215,19 @@ dynamic-linking metadata.
 * **Automated:** `PackageToModuleTest.aPackageTwoKlibsDeclareIsAmbiguousAndNotResolved`,
   `RealBinaryTest.theKotlinBytesSplitByModule`
 
+### Scenario: the unmangled C bytes are placed by the archive that defines them
+* **Given:** a binary and the cinterop klibs from its link classpath, which carry static archives.
+* **When:** razves attributes the bytes that are not Kotlin.
+* **Then:** each one gets a row naming the archive and the module that ships it, or a row saying no
+  supplied archive defines it — never a guess from the name.
+* **And:** a symbol two archives both define is reported as ambiguous, not assigned. Measured on the
+  release subject: **2,366,786 bytes are defined by two different OpenSSL builds**, one from
+  `cryptography-provider-openssl3-prebuilt` and one from `ktor-client-curl`.
+* **And:** the rows sum to the non-Kotlin attributed bytes exactly.
+* **And:** 41% of those bytes land in an archive. The rest is what an `ar` index structurally cannot
+  name — it lists only what an object exports, and static data tables have internal linkage.
+* **Automated:** `RealBinaryTest.theUnmangledCBytesAreAttributedToTheArchivesThatDefineThem`
+
 ### Scenario: a derived package folds up to one a klib declares
 * **Given:** symbols in `platform.posix.addrinfo`, a cinterop struct class that kept its C name, and
   a klib declaring `platform.posix`.

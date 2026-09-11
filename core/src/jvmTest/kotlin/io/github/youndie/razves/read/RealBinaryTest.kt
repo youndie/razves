@@ -438,6 +438,63 @@ class RealBinaryTest {
         )
     }
 
+    @Test
+    fun theUnmangledCBytesAreAttributedToTheArchivesThatDefineThem() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val klibDir = System.getProperty(KLIB_DIR_PROPERTY) ?: return skipped("no klib directory given")
+        val roots = klibDir.split(File.pathSeparatorChar).map(::File).filter { it.isDirectory }
+        val klibs = linkClasspathKlibs(roots) + unpackedKlibs(roots)
+        if (klibs.isEmpty()) return skipped("no readable klibs under $klibDir")
+
+        val report = Attribution.report(ElfReader.read(file.readBytes(), file.name), klibs = klibs)
+        val nonKotlin = report.reconciliation.attributedBytes - report.bytesOf(Origin.KOTLIN)
+        val resolved = report.natives.filter { it.kind == ModuleRowKind.RESOLVED }
+
+        println("archives read: ${klibs.sumOf { it.archives.size }}")
+        report.natives.take(10).forEach {
+            println("  ${it.kind.name.take(1)} ${it.name.take(62).padEnd(64)}${it.bytes}")
+        }
+        println(
+            "non-Kotlin $nonKotlin, of which ${resolved.sumOf { it.bytes }} " +
+                "(${(1000.0 * resolved.sumOf { it.bytes } / nonKotlin).toInt() / 10.0}%) resolve to an archive",
+        )
+
+        val defined =
+            klibs
+                .flatMap { it.archives.values }
+                .flatten()
+                .toSet()
+        val orphans =
+            report.reconciliation.sections
+                .flatMap { it.owners }
+                .filter { Mangling.originOf(it.symbol.name) != Origin.KOTLIN && it.symbol.name !in defined }
+                .sortedByDescending { it.bytes }
+        println("largest symbols no supplied archive defines:")
+        orphans.take(12).forEach { println("  ${it.bytes.toString().padStart(9)}  ${it.symbol.name.take(70)}") }
+        val byOrigin =
+            orphans
+                .groupBy { Mangling.originOf(it.symbol.name) }
+                .mapValues { (_, e) -> e.sumOf { it.bytes } }
+        println("  by origin: $byOrigin")
+
+        assertTrue(report.natives.isNotEmpty(), "the klib set carries archives, so there should be rows")
+        assertEquals(nonKotlin, report.natives.sumOf { it.bytes }, "every non-Kotlin byte has a row")
+
+        // Measured on 2026-09-11. 41% of the non-Kotlin bytes are placed in an archive - 10.4% in
+        // exactly one and the rest in a duplicate-provider ambiguity - and the remainder is symbols
+        // an `ar` index cannot name at all, because it lists only what an object EXPORTS: static data
+        // tables and Rust's internal symbols are in the same archives and absent from the index.
+        val placed = report.natives.filterNot { it.kind == ModuleRowKind.UNATTRIBUTED_TO_A_MODULE }
+        assertTrue(
+            placed.sumOf { it.bytes } > nonKotlin / 4,
+            "at least a quarter of the non-Kotlin bytes should land in an archive; got ${placed.sumOf { it.bytes }}",
+        )
+        assertTrue(
+            report.natives.any { it.kind == ModuleRowKind.AMBIGUOUS && it.name.contains("libcrypto.a") },
+            "two OpenSSL builds define the same symbols and razves must say so rather than pick one",
+        )
+    }
+
     /**
      * The klibs that a link would actually see, which is not the same as every klib on disk.
      *
@@ -456,7 +513,11 @@ class RealBinaryTest {
             .flatMap { root -> root.walkTopDown().filter { it.isFile && it.name.endsWith(".klib") } }
             .filterNot { it.path.contains("kotlinTransformedMetadataLibraries") }
             .filterNot { it.path.contains("/commonized/") }
-            .filter { it.name.contains("linuxX64Main") || it.path.contains("/shildik/") }
+            // `linuxX64` rather than `linuxX64Main`: the archives that carry OpenSSL live in the
+            // *cinterop* klibs, named `…linuxX64Cinterop-linkingMain-…`, and a filter on `Main` sees
+            // none of them. Found by reading "archives read: 0" against a klib set that plainly had
+            // them.
+            .filter { it.name.contains("linuxX64") || it.path.contains("/shildik/") }
             .mapNotNull { runCatching { KlibReader.readArchive(it.readBytes(), it.name) }.getOrNull() }
 
     /**

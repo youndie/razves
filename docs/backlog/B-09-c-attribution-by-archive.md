@@ -1,7 +1,7 @@
 ---
 id: B-09
 title: "Attribute C symbols to the static archive that defines them"
-status: question
+status: done
 priority: P2
 size: L
 stage: stage-1-attribution
@@ -27,12 +27,40 @@ every dependency bump.
   heuristic nobody audits.
 - Does **not** cover: symbols no archive claims. Those stay in a named fallback bucket.
 
-- **Status is `question` on purpose.** [Research open question 1](../research/research-architecture.md)
-  is unanswered: OpenSSL reaches these binaries through
-  `cryptography-provider-openssl3-prebuilt`, which may ship a readable archive or something already
-  linked. Settle that first; if the archives are not there, this item degrades to the fallback and
-  the C bucket stays one row.
+- **It was `question` because the answer was data.** It is now data: the archives are there, they
+  are readable, and they place 41% of the non-Kotlin bytes. The fallback the item feared - "the C
+  bucket stays one row" - was not needed.
 
-- AC: on the four `shildik` subjects, the share of C bytes attributed by archive rather than by
-  heuristic is measured and written into the research document.
-- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/attribute/Archives.kt`
+- AC: the share of non-Kotlin bytes attributed by archive is measured and written down. **Done.**
+- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/klib/Archive.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/klib/PackageToModule.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/report/Attribution.kt`
+
+**The open question is answered: the archives are right there.** A cinterop klib carries them under
+`default/targets/<target>`, and `cryptography-provider-openssl3-prebuilt` ships a 12,737,852-byte
+`libcrypto.a` that way. Eleven were read off `shildik`'s link classpath.
+
+**Reading the index, not the members.** A GNU `ar` writes a first member holding every symbol its
+objects define, sorted. `libcrypto.a` declares 9,023 of them in 251,116 bytes; parsing every object
+inside 12 MB to learn the same thing would cost thousands of times more.
+
+**Measured on the Postgres release subject: 7,753,631 non-Kotlin bytes, of which 3,178,771 (41%)
+land in an archive.** The split is the interesting part:
+
+| | bytes | |
+|---|---|---|
+| `<ambiguous: libcrypto.a (cryptography-provider-openssl3-prebuilt), libcrypto.a (ktor-client-curl)>` | 2,366,786 | **two OpenSSL builds define the same symbols** |
+| `libssl.a`, `libcurl.a`, `libnghttp2.a`, `libsqlx4k_postgres.a`, `libcrypto.a` (curl's) | 811,985 | resolved to exactly one archive |
+| no supplied archive defines it | 4,572,896 | see below |
+
+**The duplicate OpenSSL is the finding.** 2,366,786 bytes - 11.5% of the whole binary - are defined
+by *both* providers, and razves refuses to pick one, the same way it refuses an ambiguous package.
+That is not a defect in the attribution; it is a fact about the binary that nothing else was saying.
+
+**And the 59% has a precise cause rather than a shrug.** An `ar` index lists only what an object
+**exports**. By origin, the unplaced bytes are C 3,134,081, Rust 1,263,133, C++ 134,811 and
+Kotlin/Native runtime 40,871 - and the largest are `__unnamed_3673` (142,096), `nid_objs` (60,040),
+`k25519Precomp` (30,720): static data tables with internal linkage, physically inside the archives
+razves read and absent from their indexes. The Rust is the same story - its symbols are local to
+their objects. Reading each member's own symbol table would place them, at the cost the index was
+chosen to avoid: [B-26](B-26-archive-members.md).

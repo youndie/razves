@@ -78,7 +78,21 @@ public object Attribution {
                             ModuleRow(row.first, extents.sumOf { it.bytes }, extents.size, row.second)
                         }.sortedWith(compareByDescending<ModuleRow> { it.bytes }.thenBy { it.name })
                 }.orEmpty()
-        return SizeReport(reconciliation, rows, packages, packageDepth, moduleRows)
+        // Everything that is not Kotlin, by the archive that defines it. A C symbol has no namespace
+        // and no grammar can place it; the archive that defines it can, and a cinterop klib carries
+        // its archives.
+        val nativeRows =
+            modules
+                ?.takeIf { it.archiveCount > 0 }
+                ?.let { map ->
+                    owners
+                        .filter { Mangling.originOf(it.symbol.name) != Origin.KOTLIN }
+                        .groupBy({ archiveRowName(map, it.symbol.name) }, { it })
+                        .map { (row, extents) ->
+                            ModuleRow(row.first, extents.sumOf { it.bytes }, extents.size, row.second)
+                        }.sortedWith(compareByDescending<ModuleRow> { it.bytes }.thenBy { it.name })
+                }.orEmpty()
+        return SizeReport(reconciliation, rows, packages, packageDepth, moduleRows, nativeRows)
     }
 
     /**
@@ -153,6 +167,16 @@ public object Attribution {
         }
         return kept
     }
+
+    private fun archiveRowName(
+        map: PackageToModule,
+        symbol: String,
+    ): Pair<String, ModuleRowKind> =
+        when (val owner = map.archiveOf(symbol)) {
+            is ModuleOwner.One -> owner.module to ModuleRowKind.RESOLVED
+            is ModuleOwner.Ambiguous -> "<ambiguous: ${owner.modules.joinToString(", ")}>" to ModuleRowKind.AMBIGUOUS
+            ModuleOwner.Unknown -> "<no supplied archive defines it>" to ModuleRowKind.UNATTRIBUTED_TO_A_MODULE
+        }
 
     private fun moduleRowName(
         map: PackageToModule,

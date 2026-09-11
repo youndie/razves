@@ -36,6 +36,31 @@ public class PackageToModule(
      */
     public val targets: Set<String> = klibs.flatMap { it.targets }.toSet()
 
+    /**
+     * Which archive, in which module, defines a given C symbol.
+     *
+     * The answer to the 26.7% of a release binary that carries no mangling scheme at all. A symbol
+     * defined by two archives resolves to neither, for the same reason an ambiguous package does:
+     * a tie-break produces a number that is confidently wrong.
+     */
+    private val definedBy: Map<String, List<String>> =
+        klibs
+            .flatMap { klib ->
+                klib.archives.flatMap { (archive, symbols) ->
+                    symbols.map { it to "$archive (${klib.uniqueName})" }
+                }
+            }.groupBy({ it.first }, { it.second })
+            .mapValues { (_, sources) -> sources.distinct().sorted() }
+
+    /** How many archives were read at all. Zero means nothing was supplied that carries one. */
+    public val archiveCount: Int = klibs.sumOf { it.archives.size }
+
+    public fun archiveOf(symbolName: String): ModuleOwner =
+        when (val sources = definedBy[symbolName]) {
+            null -> ModuleOwner.Unknown
+            else -> if (sources.size == 1) ModuleOwner.One(sources[0]) else ModuleOwner.Ambiguous(sources)
+        }
+
     public fun resolve(packageName: String): ModuleOwner =
         when (val modules = owners[packageName]) {
             null -> ModuleOwner.Unknown
