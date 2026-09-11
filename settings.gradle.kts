@@ -20,3 +20,7 @@ plugins {
 // The reader, the grammar and the report model. Everything interesting lives here, with no Gradle
 // API on the classpath, so it is testable without a daemon — see docs/services/core.md.
 include(":core")
+
+// A Kotlin/Native binary of known composition, built by the test suite. Not published: it is the one
+// fixture that can show attribution working from Kotlin source all the way to a package row.
+include(":fixture")

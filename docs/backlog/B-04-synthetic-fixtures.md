@@ -1,7 +1,7 @@
 ---
 id: B-04
 title: "Synthetic binaries whose attribution is known by construction"
-status: open
+status: done
 priority: P0
 size: M
 stage: stage-1-attribution

@@ -139,11 +139,18 @@ dynamic-linking metadata.
 * **Automated:** `MachOReaderTest.symbolSizesAreTheDistanceToTheNextSymbol`,
   `MachOReaderTest.theLastSymbolIsClampedAtTheEndOfItsSection`
 
-### Scenario: a synthetic binary attributes to the byte — *target*
-* **Given:** a binary compiled by the test suite from Kotlin sources whose functions have known,
-  distinct sizes, in known packages.
+### Scenario: a compiled binary attributes to the packages its source declares
+* **Given:** a Kotlin/Native binary this repository compiled, declaring three packages with a public
+  top-level function, an `internal` one and a class member in them.
 * **When:** razves reports on it.
-* **Then:** each package's attributed total equals the sum of its functions' sizes, exactly.
+* **Then:** every declaration lands in the package it was written in, and no package row is named
+  after a declaration.
+* **And:** the `linuxX64` and `macosArm64` binaries — 5,352,944 and 1,221,280 bytes, built from the
+  same source — produce identical package rows: `razvesfixture.alpha` 925, `razvesfixture.beta` 270,
+  `razvesfixture.gamma.deep` 104, `razvesfixture` 156.
+* **Automated:** `CompiledFixtureTest.theLinuxBinaryAttributesToThePackagesTheSourceDeclares`,
+  `CompiledFixtureTest.theMacOsBinaryAttributesToTheSamePackages` — each skips, by name, on a host
+  that cannot link its target.
 
 ### Scenario: two sections with the same name do not collide
 * **Given:** a Mach-O binary carrying both `__TEXT,__const` and `__DATA_CONST,__const`.

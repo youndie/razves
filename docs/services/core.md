@@ -110,9 +110,12 @@ None. The core takes arguments, not configuration.
 ## 8. Quirks
 
 * **The test fixtures are binaries, and binaries are large.** Committing a 20 MB `.kexe` to get a
-  realistic reader test is not an option. The synthetic fixtures are built by the test suite from
-  Kotlin sources with functions of known size; the large real subjects are referenced by path and
-  those tests skip themselves, by name, when the path is absent.
+  realistic reader test is not an option. There are three kinds instead, and they check different
+  things: hand-built ELF and Mach-O images assembled in memory (`fixture/ElfBuilder`,
+  `fixture/MachOBuilder`), which state the expected bytes exactly; a compiled Kotlin/Native binary in
+  the `:fixture` module, which is the only one that shows attribution working from source to a
+  package row; and the real subjects, referenced by path, whose tests skip themselves by name when
+  the path is absent.
 * **A test resource is not a thing in a Kotlin/Native test.** Fixtures reach a native test through
   a generated source file or a path passed in, not through a resource loader.
 * **The third oracle is allowed to be absent and must say so.** A cross-check against `llvm-nm` or
