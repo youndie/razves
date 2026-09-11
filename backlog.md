@@ -37,7 +37,7 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (5)
+## Open (4)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -45,9 +45,8 @@ layer, so re-prioritising an item must never move its file.
 | [B-25](docs/backlog/B-25-publish-razves.md) `[ ]` | Publish razves where another repository can reach it | P2 | S | B-24 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
-| [B-26](docs/backlog/B-26-archive-members.md) `[ ]` | Place the symbols an archive index cannot name | P3 | M | B-09 |
 
-## Closed (21)
+## Closed (22)
 
 **Read the file, and prove you read all of it**
 
@@ -68,6 +67,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-15](docs/backlog/B-15-refuse-stripped-and-mismatched.md) `[x]` - Refuse a stripped binary and a klib set for the wrong target
 - [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[x]` - Attribute NOBITS sections so uninitialised state has an owner
 - [B-22](docs/backlog/B-22-fold-undeclared-packages.md) `[x]` - Fold a package name no klib declares up to the longest one that is declared
+- [B-26](docs/backlog/B-26-archive-members.md) `[x]` - Place the symbols an archive index cannot name
 
 **Make it fail a build**
 

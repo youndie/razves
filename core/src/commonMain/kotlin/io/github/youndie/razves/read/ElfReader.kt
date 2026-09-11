@@ -107,6 +107,51 @@ public object ElfReader {
         )
     }
 
+    /**
+     * Every symbol an ELF object defines, names only.
+     *
+     * For archive members rather than for executables, which is why it is not [read]. An object's
+     * sections have no addresses and its symbols have no sizes worth anything, so building a whole
+     * [BinaryImage] out of one would produce a report-shaped thing nobody should report on. What is
+     * wanted here is the one question an archive index cannot answer: does this object define this
+     * name.
+     *
+     * **Local symbols included, which is the whole point.** An archive index lists only what an
+     * object exports; static data tables have internal linkage and are invisible to it. On the
+     * measured subject that is 3.1 MB of C and 1.3 MB of Rust.
+     */
+    internal fun definedSymbolNames(data: ByteArray): Set<String> {
+        if (!matches(data) || data.size < 0x40) return emptySet()
+        if (data[EI_CLASS].toInt() != ELFCLASS64) return emptySet()
+        val endian = data[EI_DATA].toInt()
+        if (endian != ELFDATA2LSB && endian != ELFDATA2MSB) return emptySet()
+        val b = Bytes(data, littleEndian = endian == ELFDATA2LSB)
+
+        val shoff = b.u64(0x28)
+        val shentsize = b.u16(0x3A)
+        val shnum = b.u16(0x3C)
+        if (shentsize != SECTION_HEADER_SIZE || shnum <= 0) return emptySet()
+
+        val out = mutableSetOf<String>()
+        for (i in 0 until shnum) {
+            val header = readSectionHeader(b, (shoff + i * SECTION_HEADER_SIZE).toInt())
+            if (header.type != SHT_SYMTAB || header.size <= 0) continue
+            if (header.link >= shnum) continue
+            val strings = readSectionHeader(b, (shoff + header.link * SECTION_HEADER_SIZE).toInt()).offset.toInt()
+            val count = (header.size / SYMBOL_ENTRY_SIZE).toInt()
+            for (j in 0 until count) {
+                val at = (header.offset + j.toLong() * SYMBOL_ENTRY_SIZE).toInt()
+                val shndx = b.u16(at + 6)
+                if (shndx == SHN_UNDEF || shndx >= SHN_LORESERVE) continue
+                val type = b.u8(at + 4) and 0xF
+                if (type == STT_FILE) continue
+                val name = b.cString(strings + b.u32(at).toInt())
+                if (name.isNotEmpty()) out += name
+            }
+        }
+        return out
+    }
+
     private class SectionHeader(
         val nameOffset: Long,
         val type: Long,

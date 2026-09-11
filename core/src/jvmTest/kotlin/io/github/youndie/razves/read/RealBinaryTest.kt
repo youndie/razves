@@ -495,6 +495,64 @@ class RealBinaryTest {
         )
     }
 
+    @Test
+    fun readingTheArchiveMembersPlacesWhatTheIndexCannot() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val klibDir = System.getProperty(KLIB_DIR_PROPERTY) ?: return skipped("no klib directory given")
+        val roots = klibDir.split(File.pathSeparatorChar).map(::File).filter { it.isDirectory }
+        val paths =
+            roots
+                .flatMap { root -> root.walkTopDown().filter { it.isFile && it.name.endsWith(".klib") } }
+                .filterNot { it.path.contains("kotlinTransformedMetadataLibraries") }
+                .filter { it.name.contains("linuxX64") || it.path.contains("/shildik/") }
+                .toList()
+        if (paths.isEmpty()) return skipped("no klibs under $klibDir")
+
+        val image = ElfReader.read(file.readBytes(), file.name)
+
+        fun read(deep: Boolean): Pair<Long, Long> {
+            val started = System.nanoTime()
+            val klibs =
+                paths.mapNotNull {
+                    runCatching { KlibReader.readArchive(it.readBytes(), it.name, deepArchives = deep) }.getOrNull()
+                } + unpackedKlibs(roots)
+            val report = Attribution.report(image, klibs = klibs)
+            val unplaced =
+                report.natives.filter { it.kind == ModuleRowKind.UNATTRIBUTED_TO_A_MODULE }.sumOf { it.bytes }
+            return unplaced to (System.nanoTime() - started) / 1_000_000
+        }
+
+        // Warm first, then measure, and measure the deep one first. The first call of either pays for
+        // a cold page cache and a cold JIT, and reporting that as the cost of the flag would be a
+        // measurement of the harness - the first version of this test said the deep read was FASTER
+        // than the shallow one for exactly that reason.
+        read(deep = false)
+        read(deep = true)
+        val (deepUnplaced, deepMillis) = read(deep = true)
+        val (shallowUnplaced, shallowMillis) = read(deep = false)
+        val nonKotlin =
+            Attribution.report(image).reconciliation.attributedBytes -
+                Attribution.report(image).bytesOf(Origin.KOTLIN)
+
+        println(
+            "archive index:   $shallowUnplaced unplaced of $nonKotlin " +
+                "(${(1000.0 * shallowUnplaced / nonKotlin).toInt() / 10.0}%), $shallowMillis ms",
+        )
+        println(
+            "archive members: $deepUnplaced unplaced of $nonKotlin " +
+                "(${(1000.0 * deepUnplaced / nonKotlin).toInt() / 10.0}%), $deepMillis ms",
+        )
+
+        assertTrue(deepUnplaced < shallowUnplaced, "reading the members must place strictly more")
+        // Measured on 2026-09-11, warmed: the members place 79% of what the index left unplaced, and
+        // cost 1.7% more time - because both modes inflate the archive out of the klib first and that
+        // inflate dominates. That is why it is the default rather than a flag.
+        assertTrue(
+            deepUnplaced * 3 < shallowUnplaced,
+            "the members should place most of what the index could not; $deepUnplaced against $shallowUnplaced",
+        )
+    }
+
     /**
      * The klibs that a link would actually see, which is not the same as every klib on disk.
      *
