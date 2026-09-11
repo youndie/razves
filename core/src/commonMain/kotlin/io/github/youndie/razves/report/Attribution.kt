@@ -229,7 +229,7 @@ public object Attribution {
             val end = minOf(s.address + s.size, sectionEnd)
             val bytes = if (end > start) end - start else 0L
             if (bytes > 0) {
-                out += SymbolExtent(s, bytes)
+                out += SymbolExtent(s, start, bytes)
                 cursor = end
             }
         }

@@ -229,7 +229,7 @@ class ReconciliationTest {
                 hasSymbolTable = true,
                 coversEveryFileByte = true,
             )
-        val tooMuch = SectionAttribution(section, listOf(SymbolExtent(Symbol("x", 0x1000, 200, 0), 200)))
+        val tooMuch = SectionAttribution(section, listOf(SymbolExtent(Symbol("x", 0x1000, 200, 0), 0x1000, 200)))
 
         val failure = assertFailsWith<IllegalArgumentException> { Reconciliation(image, listOf(tooMuch)) }
 

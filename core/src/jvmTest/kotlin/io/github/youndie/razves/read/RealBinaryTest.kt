@@ -7,6 +7,7 @@ import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.report.Attribution
 import io.github.youndie.razves.report.ModuleRowKind
 import io.github.youndie.razves.report.ReportDocument
+import io.github.youndie.razves.report.SymbolIndex
 import io.github.youndie.razves.report.TextReport
 import java.io.File
 import kotlin.test.Test
@@ -171,6 +172,48 @@ class RealBinaryTest {
                 appendLine("  __TEXT,__text cover   ${(text.coverage * 1000).toInt() / 10.0}%")
             },
         )
+    }
+
+    @Test
+    fun howManyAddressesOfARealBinaryHaveNoOwnerAtAll() {
+        // The number a profiler will live with. Every sample lands on an address, and razves can only
+        // name the ones a symbol covers - so the share that no symbol covers is the share of a
+        // profile that will read `unattributed`, and it is a measurement rather than a hope.
+        //
+        // Walked at a stride rather than exhaustively: a 3 MB .text is three million lookups, and the
+        // stride is prime so that it cannot align with a function size and flatter the result.
+        val file = subject() ?: return skipped("no subject binary found")
+        val image = ElfReader.read(file.readBytes(), file.name)
+        val reconciliation = Attribution.of(image)
+        val index = SymbolIndex.of(reconciliation)
+
+        val executable =
+            image.sections.filter { it.kind == SectionKind.ALLOCATED && it.name == ".text" }
+        assertTrue(executable.isNotEmpty(), "a Kotlin/Native binary with no .text is not one")
+
+        var probed = 0L
+        var missed = 0L
+        for (section in executable) {
+            var address = section.address
+            val end = section.address + section.size
+            while (address < end) {
+                probed++
+                if (index.at(address) == null) missed++
+                address += STRIDE
+            }
+        }
+
+        val share = 1000.0 * missed / probed
+        println(
+            "${file.name}: ${index.size} owned ranges; of $probed addresses probed across .text, " +
+                "$missed have no symbol - ${share.toInt() / 10.0}%",
+        )
+
+        assertTrue(probed > 1000, "a run that probed nothing would pass every assertion below")
+        // Not an arbitrary threshold: razves already measures .text as 98.4% attributed on its own
+        // binary, and an address walk of a section that well covered cannot be mostly misses. If this
+        // ever fires, the lookup is wrong rather than the binary being unusual.
+        assertTrue(share < 200, "over a fifth of .text addresses have no owner, which is a defect here")
     }
 
     @Test
@@ -610,6 +653,9 @@ class RealBinaryTest {
     }
 
     private companion object {
+        /** Prime, so the walk cannot align with a function size and flatter the result. */
+        const val STRIDE = 61L
+
         const val SUBJECT_ENV = "RAZVES_ELF_SUBJECT"
         const val MACHO_SUBJECT_ENV = "RAZVES_MACHO_SUBJECT"
         const val KLIB_DIR_PROPERTY = "RAZVES_KLIB_DIR"

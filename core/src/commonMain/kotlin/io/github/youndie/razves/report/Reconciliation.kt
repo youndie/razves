@@ -180,5 +180,17 @@ public data class SectionAttribution(
 /** A symbol and the bytes charged to it after overlaps are resolved. */
 public data class SymbolExtent(
     val symbol: Symbol,
+    /**
+     * Where the owned range begins, which is **not** always `symbol.address`.
+     *
+     * The sweep hands each byte to the symbol that reached it first, so a symbol overlapping one
+     * that started earlier owns only the tail it added. Carrying the start rather than recomputing
+     * it is what lets [SymbolIndex] answer "who owns this address" with the same rule that decided
+     * who owns the byte - one rule, in one place, instead of two that agree until they do not.
+     */
+    val start: Long,
     val bytes: Long,
-)
+) {
+    /** Exclusive, like every end in this codebase. */
+    public val end: Long get() = start + bytes
+}
