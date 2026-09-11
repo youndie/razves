@@ -48,6 +48,9 @@ dynamic-linking metadata.
 * **Per-section coverage is printed next to every section conclusion.** Measured on the release
   subject: `.text` 97.6%, `.data.rel.ro` 94.8%, `.data` 97.2%, `.rodata` 40.7%, `.init_array` 20.0%. A reader who cannot see the difference will
   draw a `.rodata` conclusion with the confidence a `.text` conclusion deserves.
+* **What is left out is named, not merely absent.** NOBITS sections cost no file bytes and get a
+  reconciliation line saying so, because a reader who cannot find `.bss` should not have to infer
+  why.
 * **The algorithm that produced a number is named in the report header.** ELF sizes come from
   `st_size`; Mach-O sizes are derived by address delta and include trailing alignment padding.
   These are not interchangeable and the report says which one ran.
@@ -329,6 +332,8 @@ dynamic-linking metadata.
   happens, which is why the plugin supplies the classpath rather than a directory.
 * **NOBITS sections have no owner at all.** `.bss` and `.tbss` are counted in the virtual size and
   excluded from attribution entirely, so a package with a megabyte of uninitialised state gets no
-  row for it. That is defensible while the subject is file size — NOBITS costs nothing to ship — and
-  it stops being defensible the moment a budget is set on the allocated size instead. Tracked as
-  [B-21](../backlog/B-21-attribute-nobits-sections.md).
+  row for it. That is correct while the budget is on file size, which
+  [research §1.2b](../research/research-architecture.md) settled: NOBITS costs nothing to download,
+  and counting it would put bytes in a total the user does not pay for. The report names the line
+  rather than leaving the absence to be noticed. A budget set on `Measure.ALLOCATED` would reopen it
+  — see [B-21](../backlog/B-21-attribute-nobits-sections.md).

@@ -630,11 +630,12 @@ actually reach the OpenSSL bytes in `shildik`? The provider arrives as
 ship something already linked. Settled in M2 by running against the four subject binaries; the
 answer decides whether the C bucket subdivides by library or stays one row.
 
-**Open question 2.** Is the right unit of the gate the file size, the allocated size, or the sum of
-attributed Kotlin? File size is what a user pays for and is the most jittery (it moves with the
-symbol table). Allocated size is the most stable. Hypothesis: default to file size because it is
-the number in the ticket, and let the budget DSL select another. Settled in M3, once there is a
-week of real numbers from `shildik`, `booblik` and `telek`.
+**Open question 2 — settled, and the question was wrong.** It asked which measure jitters least and
+expected a week of reports to answer it. **All three are perfectly reproducible** — three clean
+relinks of unchanged source give byte-identical numbers — so there is no jitter to compare. What
+separates them is which changes they respond to, and on that axis file size wins: see §1.2b. Its one
+disadvantage, sensitivity to renaming, is **224 bytes** on a rename of every identifier in the
+program, against a 3% budget.
 
 **Open question 3.** What does razves do with a binary whose target it cannot infer? Both readers
 work from magic bytes, so the format is never in question — but the *module* map needs klibs for

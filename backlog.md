@@ -37,18 +37,16 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (6)
+## Open (4)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-09](docs/backlog/B-09-c-attribution-by-archive.md) `[?]` | Attribute C symbols to the static archive that defines them | P2 | L | - |
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-14 |
-| [B-20](docs/backlog/B-20-decide-the-budget-unit.md) `[?]` | Decide what the budget is measured on | P2 | XS | B-16 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
-| [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[ ]` | Attribute NOBITS sections so uninitialised state has an owner | P3 | S | B-20 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (17)
+## Closed (19)
 
 **Read the file, and prove you read all of it**
 
@@ -66,6 +64,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-08](docs/backlog/B-08-klib-package-to-module.md) `[x]` - Map package to module from klib manifests, and report ambiguity as ambiguity
 - [B-10](docs/backlog/B-10-report-renderer.md) `[x]` - Render the report as text and as JSON, coverage next to every conclusion
 - [B-15](docs/backlog/B-15-refuse-stripped-and-mismatched.md) `[x]` - Refuse a stripped binary and a klib set for the wrong target
+- [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[x]` - Attribute NOBITS sections so uninitialised state has an owner
 - [B-22](docs/backlog/B-22-fold-undeclared-packages.md) `[x]` - Fold a package name no klib declares up to the longest one that is declared
 
 **Make it fail a build**
@@ -74,6 +73,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-12](docs/backlog/B-12-gradle-size-report.md) `[x]` - Gradle plugin: sizeReport, wired to the link tasks, configuration-cache clean
 - [B-13](docs/backlog/B-13-baseline-and-diff.md) `[x]` - A committed baseline and a row-level diff
 - [B-14](docs/backlog/B-14-budget-gate.md) `[x]` - The budget gate, and a failure message that names the rows that moved
+- [B-20](docs/backlog/B-20-decide-the-budget-unit.md) `[x]` - Decide what the budget is measured on
 
 **Point it at real binaries and publish what it says**
 

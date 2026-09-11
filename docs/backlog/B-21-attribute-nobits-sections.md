@@ -1,12 +1,11 @@
 ---
 id: B-21
 title: "Attribute NOBITS sections so uninitialised state has an owner"
-status: open
+status: done
 priority: P3
 size: S
 stage: stage-1-attribution
 epic: feature-size-report
-blocked_by: [B-20]
 ---
 
 # B-21 — Attribute NOBITS sections so uninitialised state has an owner
@@ -28,7 +27,28 @@ in the report says that it does not.
   quantities and the report already keeps `virtualSize` apart from `fileSize` for that reason.
 
 - AC: whichever way [B-20](B-20-decide-the-budget-unit.md) goes, the report states what it does with
-  NOBITS rather than leaving a reader to infer it from a number that is missing.
+  NOBITS rather than leaving a reader to infer it from a number that is missing. **Done.**
 - AC: if NOBITS is attributed, its bytes appear in the virtual-size column and never in the file one.
-- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/report/Attribution.kt`,
-  `core/src/commonMain/kotlin/io/github/youndie/razves/report/SizeReport.kt`
+  **Moot: it is not attributed, and the reason is now decided rather than deferred.**
+- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/report/TextReport.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/read/Binary.kt`
+
+**Closed as a Limitations paragraph, which is what its own first criterion asked for.**
+[B-20](B-20-decide-the-budget-unit.md) settled on **file size**, so the omission is correct rather
+than merely tolerable: NOBITS costs nothing to download, and counting it would put bytes into a total
+the user does not pay for.
+
+**The report says so in the place it would otherwise be missing.** The reconciliation table carries
+the line rather than leaving a reader to notice an absence:
+
+```
+  in memory only (NOBITS)      27,696 (27.0 KiB)   costs no download
+```
+
+That is the whole of the fix. A reader who wonders where `.bss` went finds it named, with the reason
+beside it, in the same table as everything else.
+
+**What would reopen this:** a budget set on `Measure.ALLOCATED`, which the DSL allows. A gate on the
+allocated size does count NOBITS, and uninitialised state with no owner then becomes a correctness
+gap rather than a deliberate omission. It is not the default and nothing in this portfolio sets it,
+so reopening waits for somebody who does.
