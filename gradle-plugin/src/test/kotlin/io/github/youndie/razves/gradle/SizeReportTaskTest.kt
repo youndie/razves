@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -399,6 +400,88 @@ class SizeReportTaskTest {
 
         assertEquals(TaskOutcome.SUCCESS, result.task(":$TASK")?.outcome)
         assertTrue(File(projectDir, "build/reports/razves/debugExecutable.json").isFile)
+    }
+
+    @Test
+    fun aProjectWithNoKotlinPluginAppliesRazvesAndSimplyGetsNoSizeTasks() {
+        // Every other test here builds a project that HAS the Kotlin plugin, because that is the only
+        // kind of project razves is useful in - so the one thing none of them can see is what happens
+        // when it is absent. And `withPluginClasspath()` cannot see it either: the plugin-under-test
+        // metadata carries KGP, so the class resolves there whatever the plugin does. By id, out of a
+        // repository, is the only shape in which this is a question at all.
+        val repository = System.getProperty("RAZVES_TEST_REPOSITORY") ?: return skipped()
+        val version = System.getProperty("RAZVES_VERSION") ?: return skipped()
+        byId(repository, version, "plugins { base\n    id(\"io.github.youndie.razves\") version \"$version\" }")
+
+        val result =
+            GradleRunner
+                .create()
+                .withProjectDir(projectDir)
+                .withArguments("tasks")
+                .forwardOutput()
+                .build()
+
+        // `build()` fails the test if the build does, which is the half that used to crash.
+        assertFalse("sizeReport" in result.output, "no binary, no report - and no failure either")
+    }
+
+    @Test
+    fun razvesAppliedBeforeTheKotlinPluginStillGetsItsTasks() {
+        // The order in a `plugins` block is the author's, not razves'. Registration hangs off
+        // `plugins.withId`, which fires whenever the other plugin arrives - before or after.
+        if (HOST_TARGET == null) return skipped()
+        val repository = System.getProperty("RAZVES_TEST_REPOSITORY") ?: return skipped()
+        val version = System.getProperty("RAZVES_VERSION") ?: return skipped()
+        byId(
+            repository,
+            version,
+            """
+            plugins {
+                id("io.github.youndie.razves") version "$version"
+                kotlin("multiplatform") version "$KOTLIN_VERSION"
+            }
+            kotlin { $HOST_TARGET { binaries.executable { entryPoint = "subject.main" } } }
+            """.trimIndent(),
+        )
+
+        val result =
+            GradleRunner
+                .create()
+                .withProjectDir(projectDir)
+                .withArguments("tasks")
+                .forwardOutput()
+                .build()
+
+        assertTrue("sizeReportDebugExecutable" in result.output, result.output)
+        assertTrue("sizeBudgetCheckDebugExecutable" in result.output)
+    }
+
+    /** A project that resolves razves by id from the repository this build published into. */
+    private fun byId(
+        repository: String,
+        version: String,
+        buildScript: String,
+    ) {
+        File(projectDir, "settings.gradle.kts").writeText(
+            """
+            rootProject.name = "subject"
+            pluginManagement {
+                repositories {
+                    maven { url = uri("$repository") }
+                    gradlePluginPortal()
+                    mavenCentral()
+                }
+            }
+            dependencyResolutionManagement {
+                repositories {
+                    maven { url = uri("$repository") }
+                    mavenCentral()
+                }
+            }
+            """.trimIndent(),
+        )
+        File(projectDir, "gradle.properties").writeText("org.gradle.jvmargs=-Xmx2g\n")
+        File(projectDir, "build.gradle.kts").writeText(buildScript)
     }
 
     private fun skipped() {
