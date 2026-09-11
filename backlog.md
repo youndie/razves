@@ -30,6 +30,7 @@ layer, so re-prioritising an item must never move its file.
 | `stage-1-attribution` | Name the owner, or admit there isn't one | Mangling grammar, origin buckets, packages, klib modules, and the refusals that stop a plausible wrong answer. |
 | `stage-2-gradle` | Make it fail a build | The plugin, the baseline, the row-level diff, the budget gate, the CLI. |
 | `stage-3-subjects` | Point it at real binaries and publish what it says | The three subjects, the `sborka` convention, the article. |
+| `stage-4-profiler` | Say where the time went, out of the same table | A sampler that runs inside a process, symbolisation and aggregation by razves, pprof, and MCP. Its items cite [research-profiler](docs/research/research-profiler.md) as their epic: the behaviour does not exist yet, so there is no feature document to cite, and a draft one on `main` is what this repository refuses. |
 
 ## Marks
 
@@ -37,10 +38,18 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (2)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
+| [B-29](docs/backlog/B-29-sampling-cost-stand.md) `[ ]` | A stand that can resolve what sampling costs | P1 | M | - |
+| [B-30](docs/backlog/B-30-in-process-sampler.md) `[ ]` | The in-process sampler, in C, behind cinterop | P1 | M | - |
+| [B-31](docs/backlog/B-31-symbol-at-address.md) `[ ]` | Address to symbol, in core | P1 | S | - |
+| [B-32](docs/backlog/B-32-aggregate-samples.md) `[ ]` | Aggregate samples by origin, package and module | P1 | M | B-30, B-31 |
+| [B-33](docs/backlog/B-33-pprof-writer.md) `[ ]` | Write pprof, so existing viewers work | P1 | M | B-32 |
+| [B-34](docs/backlog/B-34-gc-statistics.md) `[ ]` | Garbage collection, by polling, saying what it missed | P2 | S | - |
+| [B-35](docs/backlog/B-35-mcp-interface.md) `[ ]` | MCP as the second interface, in tracy's shape | P2 | M | B-32 |
+| [B-36](docs/backlog/B-36-apple-sampler.md) `[ ]` | The Apple half: no POSIX timer, a different context, a sliding image | P2 | M | B-30 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
