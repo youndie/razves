@@ -18,14 +18,37 @@ binarySize {
 }
 ```
 
-> **Status: it works, and it is not published anywhere yet.** The readers, the attribution, the
-> CLI and the Gradle plugin are implemented and covered by 165 tests; every number on this page was
-> measured by razves itself. There are no coordinates to copy into a build file — until there are,
-> it is built from source. Start at
-> [`docs/research/research-architecture.md`](docs/research/research-architecture.md), which records
-> the eighteen places where a measurement corrected the plan.
+> **Status: snapshots, and no release.** The readers, the attribution, the CLI and the Gradle plugin
+> are implemented and covered by 165 tests; every number on this page was measured by razves itself.
+> Start at [`docs/research/research-architecture.md`](docs/research/research-architecture.md), which
+> records the eighteen places where a measurement corrected the plan.
 
-## Build it
+## Use it
+
+Every push to `main` publishes `0.1.0.<run>` to the snapshot repository; `0.1.0.4` is the version
+this page was written against.
+
+```kotlin
+// settings.gradle.kts
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven("https://reposilite.kotlin.website/snapshots")
+    }
+}
+```
+
+```kotlin
+// build.gradle.kts
+plugins {
+    id("io.github.youndie.razves") version "0.1.0.4"
+}
+```
+
+The report model on its own is `io.github.youndie.razves:core`, multiplatform, with no Gradle API on
+its classpath.
+
+## Or build it
 
 ```bash
 ./gradlew :cli:linkReleaseExecutableLinuxX64   # or :cli:linkReleaseExecutableMacosArm64 on a mac
