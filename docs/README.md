@@ -82,11 +82,14 @@ The list below is **checked** against the files on disk: a document missing here
 no file behind it, fails `coverage_map.py`. The grouping and the descriptions are written by a
 person — the machine only guards the membership.
 
-### Research (1)
+### Research (2)
 
 - [x] [research-architecture](research/research-architecture.md) — what was measured on four real
   Kotlin/Native binaries, the nine decisions that follow, and the six places the measurements
   contradicted the brief
+- [x] [research-profiler](research/research-profiler.md) — whether a sampling profiler can sit on
+  razves' symbol table: what a signal handler may do in a Kotlin/Native process, what the
+  sampling rate really is, and what it costs
 
 ### Services (3)
 
