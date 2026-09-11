@@ -55,6 +55,10 @@ dynamic-linking metadata.
 * **A package claimed by more than one module is reported as ambiguous.** No tie-break.
 * **Module attribution requires klibs and never guesses.** Without them the report stops at
   package level and says so in the header.
+* **A package name nothing declares folds up to the longest one that is declared.** The klib lists
+  are the authority on which packages exist, and a grammar over mangled names cannot be: cinterop
+  keeps a C struct's own name. The fold never invents — with no declared prefix, the derived name
+  stands.
 
 ## 3. Flow
 
@@ -197,6 +201,18 @@ dynamic-linking metadata.
 * **Automated:** `PackageToModuleTest.aPackageTwoKlibsDeclareIsAmbiguousAndNotResolved`,
   `RealBinaryTest.theKotlinBytesSplitByModule`
 
+### Scenario: a derived package folds up to one a klib declares
+* **Given:** symbols in `platform.posix.addrinfo`, a cinterop struct class that kept its C name, and
+  a klib declaring `platform.posix`.
+* **When:** razves reports with those klibs supplied.
+* **Then:** the bytes appear under `platform.posix`, and the module row resolves instead of saying no
+  klib declares it.
+* **And:** with no declared prefix the derived name stands — the fold never invents.
+* **And:** measured on the release subject, folding takes the rows naming no declared package from
+  23 worth 25,142 bytes to 3 worth 11,753, and the rows with no declaring module from 27 worth
+  70,038 bytes to 7 worth 56,649.
+* **Automated:** `FoldedPackagesTest`, `RealBinaryTest.everyPackageAtFullDepthIsOneAKlibDeclares`
+
 ### Scenario: razves reads a klib without a subprocess
 * **Given:** a klib as a zip, and a klib unpacked as a directory.
 * **When:** razves reads its `unique_name`, `native_targets` and package list.
@@ -254,11 +270,11 @@ dynamic-linking metadata.
 * **The symbol table razves reads is 19–21% of the binary it is describing.** Measured on four
   subjects. It is simultaneously the tool's input and the largest single saving available, and
   removing it removes the tool's ability to see anything.
-* **A lowercase declaration name reads as a package segment.** cinterop keeps a C struct's own name,
-  so `platform.posix.addrinfo` and `dev.whyoleg…internal.cinterop.ossl_param_st` appear as package
-  rows. Measured at 0.4% of the checkable Kotlin bytes, and not fixable by any grammar over names —
-  the klib package list is the authority, and [B-22](../backlog/B-22-fold-undeclared-packages.md)
-  uses it.
+* **A lowercase declaration name reads as a package segment when no klibs are supplied.** cinterop
+  keeps a C struct's own name, so `platform.posix.addrinfo` and
+  `dev.whyoleg…internal.cinterop.ossl_param_st` appear as package rows. Measured at 0.4% of the
+  checkable Kotlin bytes without klibs, and 0.2% with them — after folding, what remains is a klib
+  nobody supplied rather than a name razves misread.
 * **`.rodata` coverage is 40.6%.** Any conclusion about data size rests on less than half of the
   section, which is why coverage is printed per section.
 * **The klib set must be the link classpath.** A directory sweep of a project's build tree picks up

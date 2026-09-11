@@ -51,10 +51,12 @@ public object Attribution {
                 val extents = byOrigin[origin].orEmpty()
                 OriginRow(origin, extents.sumOf { it.bytes }, extents.size)
             }
+        // One folded name per symbol, used for both the package rows and the module rows, so the two
+        // layers can never disagree about which package a byte is in.
+        val packaged = foldedPackages(owners, modules)
         val packages =
-            owners
-                .mapNotNull { extent -> Packages.of(extent.symbol.name, packageDepth)?.let { it to extent } }
-                .groupBy({ it.first }, { it.second })
+            packaged
+                .groupBy({ truncate(it.first, packageDepth) }, { it.second })
                 .map { (name, extents) -> PackageRow(name, extents.sumOf { it.bytes }, extents.size) }
                 .sortedWith(compareByDescending<PackageRow> { it.bytes }.thenBy { it.name })
         // Modules resolve on the FULL package name and never on the truncated one. A depth-3 row
@@ -64,16 +66,52 @@ public object Attribution {
         val moduleRows =
             modules
                 ?.let { map ->
-                    owners
-                        .mapNotNull { extent ->
-                            Packages.of(extent.symbol.name)?.let { fqn -> moduleRowName(map, fqn) to extent }
-                        }.groupBy({ it.first }, { it.second })
+                    packaged
+                        .groupBy({ moduleRowName(map, it.first) }, { it.second })
                         .map { (row, extents) ->
                             ModuleRow(row.first, extents.sumOf { it.bytes }, extents.size, row.second)
                         }.sortedWith(compareByDescending<ModuleRow> { it.bytes }.thenBy { it.name })
                 }.orEmpty()
         return SizeReport(reconciliation, rows, packages, packageDepth, moduleRows)
     }
+
+    /**
+     * Every symbol's package, folded to a name some klib actually declares.
+     *
+     * A grammar over mangled names cannot tell a lowercase declaration from a package segment, and
+     * cinterop generates plenty of the former because a C struct keeps its C name. Measured on the
+     * release subject before this existed: 23 package rows of 210 named a package no klib declares -
+     * `platform.posix.addrinfo`, `dev.whyoleg…internal.cinterop.ossl_param_st`,
+     * `io.ktor.network.interop.selection_set` - worth 25,142 bytes.
+     *
+     * The klib package lists are the authority that fixes it, and folding is the whole fix: a derived
+     * name that nothing declares becomes the longest prefix of it that something does.
+     * `platform.posix.addrinfo` becomes `platform.posix`, which is both correct and what a reader
+     * wanted.
+     *
+     * **The fold never invents.** With no klibs, or with no declared prefix, the derived name stands
+     * as it is - which is the honest answer when there is no authority to appeal to, and the report's
+     * header says module attribution was unavailable.
+     */
+    private fun foldedPackages(
+        owners: List<SymbolExtent>,
+        modules: PackageToModule?,
+    ): List<Pair<String, SymbolExtent>> {
+        // Pairs rather than a map keyed by the extent: two symbols can be equal as values without
+        // being the same symbol, and a map would silently merge them.
+        val folded = HashMap<String, String>()
+        val out = ArrayList<Pair<String, SymbolExtent>>(owners.size)
+        for (extent in owners) {
+            val derived = Packages.of(extent.symbol.name) ?: continue
+            out += folded.getOrPut(derived) { modules?.longestDeclaredPrefix(derived) ?: derived } to extent
+        }
+        return out
+    }
+
+    private fun truncate(
+        packageName: String,
+        depth: Int,
+    ): String = packageName.split('.').take(depth).joinToString(".")
 
     private fun moduleRowName(
         map: PackageToModule,

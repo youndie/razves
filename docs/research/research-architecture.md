@@ -324,6 +324,13 @@ named module.** This is the sharpest argument yet for [D8](#d8-one-core-two-fron
 knowing *which* klibs took part is not a convenience Gradle offers, it is the difference between a
 useful report and a useless one.
 
+**Consequence 2b, once the fold existed (B-22).** Folding a derived package name to the longest one
+any supplied klib declares takes the misfiled rows of the release subject from 23 worth 25,142 bytes
+to **3 worth 11,753** — and all three survivors are klibs nobody supplied rather than names razves
+misread: the executable module's own package, and two cinterop artifacts. It moves the module layer
+with it, because both layers read the same folded name: rows with no declaring klib fall from 27 to
+7, and **87.1% of the Kotlin bytes land on a named module.**
+
 **Consequence 2a, found while implementing M1 (B-07).** The klib package list is not only the
 module map — it is the **authority on which packages exist**, and razves needs that authority for a
 reason the brief did not anticipate. A declaration whose own name is lowercase is indistinguishable

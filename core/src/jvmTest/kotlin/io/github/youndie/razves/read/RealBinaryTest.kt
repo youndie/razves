@@ -272,6 +272,13 @@ class RealBinaryTest {
         if (declared.isEmpty()) return skipped("no klib linkdata found under $klibs")
 
         val r = Attribution.report(ElfReader.read(file.readBytes(), file.name), packageDepth = Int.MAX_VALUE)
+        val roots0 = klibs.split(File.pathSeparatorChar).map(::File).filter { it.isDirectory }
+        val folded =
+            Attribution.report(
+                ElfReader.read(file.readBytes(), file.name),
+                packageDepth = Int.MAX_VALUE,
+                modules = PackageToModule(linkClasspathKlibs(roots0) + unpackedKlibs(roots0)),
+            )
         // The application's own packages are not in any dependency's klib, so only the ones that
         // share a root with a declared package can be held against the list.
         val roots = declared.map { it.substringBefore('.') }.toSet()
@@ -300,6 +307,21 @@ class RealBinaryTest {
             share < 0.02,
             "package rows naming no declared package are worth ${(share * 1000).toInt() / 10.0}% of the " +
                 "checkable Kotlin bytes, which is more than the grammar is allowed to misfile",
+        )
+
+        // And with the klib lists supplied, the fold of B-22 removes them: a derived name nothing
+        // declares becomes the longest prefix of it that something does.
+        val stillInvented =
+            folded.packages
+                .filter { it.name.substringBefore('.') in roots }
+                .filterNot { it.name in declared }
+        println(
+            "after folding through the klib lists: ${stillInvented.size} rows still name no declared " +
+                "package, worth ${stillInvented.sumOf { it.bytes }} bytes ${stillInvented.take(5).map { it.name }}",
+        )
+        assertTrue(
+            stillInvented.sumOf { it.bytes } < invented.sumOf { it.bytes },
+            "folding through the klib lists must account for strictly more than the grammar alone",
         )
     }
 
