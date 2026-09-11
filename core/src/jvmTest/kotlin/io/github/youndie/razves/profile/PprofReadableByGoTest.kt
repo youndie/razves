@@ -29,7 +29,21 @@ class PprofReadableByGoTest {
             .firstOrNull { it.canExecute() }
             ?.path
 
-    private fun skipped() = println("SKIPPED PprofReadableByGoTest: go is not on PATH, so pprof cannot be asked.")
+    /**
+     * Skipping is fine on a laptop and a defect on CI.
+     *
+     * A test that passes by being absent is the failure this repository keeps finding in other
+     * people work, and it nearly happened here: the skip line goes to stdout, Gradle does not forward
+     * test output, and a run in which this quietly did nothing looks exactly like a run in which it
+     * held. On CI there is no excuse for a missing toolchain, so there it fails instead.
+     */
+    private fun skipped() {
+        check(System.getenv("CI") != "true") {
+            "go is not on PATH on CI, so the only check that a real reader accepts what razves writes " +
+                "did not run. Install Go in the workflow rather than letting this pass silently."
+        }
+        println("SKIPPED PprofReadableByGoTest: go is not on PATH, so pprof cannot be asked.")
+    }
 
     @Test
     fun goToolPprofReadsTheProfileAndNamesTheKotlinFunctions() {

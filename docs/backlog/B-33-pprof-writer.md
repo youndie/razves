@@ -29,8 +29,13 @@ razves profile --format pprof > cpu.pb.gz
 - AC: a profile written here opens in `go tool pprof` and in one browser viewer, checked by opening
   it rather than by reading the spec. **Verified for `go tool pprof`, and automated:
   `PprofReadableByGoTest` writes a profile, runs the real `go tool pprof -top` on it and asserts what
-  comes back - skipping by name where Go is not installed. A browser viewer is not checked, and this
-  item does not claim it.**
+  comes back. A browser viewer is not checked, and this item does not claim it.**
+
+  **And the skip nearly became the defect it was written to avoid.** The test skips itself where Go
+  is absent, printing a line - which Gradle does not forward, so a CI run in which it quietly did
+  nothing looks exactly like a run in which it held. It now fails when `CI` is set: there is no
+  excuse for a missing toolchain there, and a check that passes by being absent is the shape this
+  repository keeps finding in other people work.
 - AC: the function names in the viewer are the Kotlin ones - `io.ktor.client...`, not
   `kfun:io.ktor.client...$lambda$3`. **Verified, from the tool own output.**
 - AC: the sample count in the viewer equals the count the sampler reported, dropped samples included
