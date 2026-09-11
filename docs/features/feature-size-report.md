@@ -46,7 +46,7 @@ dynamic-linking metadata.
 * **`unattributed` is always printed, never absorbed.** No row of the report may be rounded into
   another to make a total work.
 * **Per-section coverage is printed next to every section conclusion.** Measured on the release
-  subject: `.text` 97.6%, `.data.rel.ro` 94.7%, `.data` 97.2%, `.rodata` 40.6%, `.init_array` 20.0%. A reader who cannot see the difference will
+  subject: `.text` 97.6%, `.data.rel.ro` 94.8%, `.data` 97.2%, `.rodata` 40.7%, `.init_array` 20.0%. A reader who cannot see the difference will
   draw a `.rodata` conclusion with the confidence a `.text` conclusion deserves.
 * **The algorithm that produced a number is named in the report header.** ELF sizes come from
   `st_size`; Mach-O sizes are derived by address delta and include trailing alignment padding.
@@ -257,6 +257,19 @@ dynamic-linking metadata.
 * Bitcode. `JetBrains-Research/bitcode-tools` covers that and it is a different question.
 * Any format but ELF and Mach-O. No PE, no Wasm.
 
+### Scenario: the report renders as text and as JSON, and the JSON round-trips
+* **Given:** any report.
+* **When:** razves renders it as JSON, parses it back, and renders it again.
+* **Then:** the two strings are identical, byte for byte — the same file is what `--format json`
+  prints and what the plugin commits as a baseline, so a format that reformats itself would produce
+  a diff with no change in it.
+* **And:** the document stores no derived number: coverage, percentages and shares are computed by
+  the renderer, and the words do not appear in the file.
+* **And:** the text header says which size algorithm produced the numbers, whether klibs were
+  supplied, and whether package names were truncated.
+* **And:** the module table is absent rather than empty when there are no klibs.
+* **Automated:** `ReportRenderingTest`, `RealBinaryTest.theRenderedReportOfARealBinary`
+
 ### Scenario: the sections nobody owns are named one by one
 * **Given:** a binary whose `.eh_frame` no symbol claims.
 * **When:** razves reports on it.
@@ -295,7 +308,7 @@ dynamic-linking metadata.
   `dev.whyoleg…internal.cinterop.ossl_param_st` appear as package rows. Measured at 0.4% of the
   checkable Kotlin bytes without klibs, and 0.2% with them — after folding, what remains is a klib
   nobody supplied rather than a name razves misread.
-* **`.rodata` coverage is 40.6%.** Any conclusion about data size rests on less than half of the
+* **`.rodata` coverage is 40.7%.** Any conclusion about data size rests on less than half of the
   section, which is why coverage is printed per section.
 * **The klib set must be the link classpath.** A directory sweep of a project's build tree picks up
   `kotlinTransformedMetadataLibraries/` copies of dependencies, whose `unique_name` is the source-set

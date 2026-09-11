@@ -28,7 +28,7 @@ covers Kotlin and calls the rest "other" answers a third of the question.
   anonymous remainder. Measured: **22** such sections in the release subject, those six of them
   2,189,115 bytes together, 10.7% of the file.
 - AC: every section row carries its attributed percentage. Measured on the same binary: `.text`
-  97.6%, `.data.rel.ro` 94.7%, `.data` 97.2%, `.rodata` 40.6%, `.init_array` 20.0%.
+  97.6%, `.data.rel.ro` 94.8%, `.data` 97.2%, `.rodata` 40.7%, `.init_array` 20.0%.
 - Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/report/SizeReport.kt`,
   `core/src/commonMain/kotlin/io/github/youndie/razves/report/Attribution.kt`
 

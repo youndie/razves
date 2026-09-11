@@ -6,6 +6,8 @@ import io.github.youndie.razves.klib.KlibReader
 import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.report.Attribution
 import io.github.youndie.razves.report.ModuleRowKind
+import io.github.youndie.razves.report.ReportDocument
+import io.github.youndie.razves.report.TextReport
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -411,6 +413,28 @@ class RealBinaryTest {
         assertTrue(
             r.modules.count { it.kind == ModuleRowKind.RESOLVED } > r.modules.size / 2,
             "most module rows should name one module",
+        )
+    }
+
+    @Test
+    fun theRenderedReportOfARealBinary() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val klibDir = System.getProperty(KLIB_DIR_PROPERTY)
+        val modules =
+            klibDir?.let {
+                val roots = it.split(File.pathSeparatorChar).map(::File).filter { root -> root.isDirectory }
+                PackageToModule(linkClasspathKlibs(roots) + unpackedKlibs(roots))
+            }
+        val report = Attribution.report(ElfReader.read(file.readBytes(), file.name), modules = modules)
+        val document = ReportDocument.of(report)
+
+        println(TextReport.render(document, rows = 12))
+
+        assertEquals(document.toJson(), ReportDocument.parse(document.toJson()).toJson())
+        assertEquals(
+            document.fileSize,
+            document.headerBytes + document.allocatedBytes + document.metadataBytes +
+                document.paddingBytes + document.unparsedBytes,
         )
     }
 
