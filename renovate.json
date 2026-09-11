@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "The portfolio's configuration by name rather than by copy: the timezone, the Monday schedule and the groups that say a release is one pull request all live in `youndie/sborka`, and a repository that pastes them is a repository that stops getting the next fix to them.",
+    "The harness preset is extended SECOND on purpose - package rules are concatenated in the order the presets are named, and its rule has to win over the base preset's `a major of anything that ships gets a human`.",
+    "Its precondition holds here, and it is not rhetorical: `.github/workflows/check.yaml` runs on `pull_request`, so a green pull request means the gate actually ran. If that trigger is ever narrowed, this line has to go with it.",
+    "Nothing razves-specific is added yet. What this repository needs beyond the preset will be found by the preset failing to cover it - the one known gap is that the TestKit tests pin a Kotlin version as a Kotlin constant, where no manager can see it."
+  ],
+  "extends": [
+    "github>youndie/sborka",
+    "github>youndie/sborka:automerge-harness"
+  ]
+}
