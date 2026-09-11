@@ -42,12 +42,12 @@ layer, so re-prioritising an item must never move its file.
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-25 |
-| [B-25](docs/backlog/B-25-publish-razves.md) `[ ]` | Publish razves where another repository can reach it | P2 | S | B-24 |
 | [B-27](docs/backlog/B-27-cli-diff.md) `[ ]` | razves diff in the CLI, against a report the plugin wrote | P2 | S | B-13 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
+| [B-28](docs/backlog/B-28-apply-without-kgp.md) `[ ]` | Applying razves without the Kotlin Gradle Plugin should do nothing, not crash | P3 | S | - |
 
-## Closed (22)
+## Closed (23)
 
 **Read the file, and prove you read all of it**
 
@@ -82,6 +82,7 @@ layer, so re-prioritising an item must never move its file.
 **Point it at real binaries and publish what it says**
 
 - [B-16](docs/backlog/B-16-run-on-the-three-subjects.md) `[x]` - Report on shildik, booblik and telek, and write the article from the numbers
+- [B-25](docs/backlog/B-25-publish-razves.md) `[x]` - Publish razves where another repository can reach it
 
 <!-- END INDEX -->
 

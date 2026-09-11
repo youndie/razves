@@ -33,10 +33,15 @@ jobs:
       #
       # Without the version: it does not exist until the job has run, so it is appended on the other
       # side.
-      coordinates: |
-        io.github.youndie.razves:core
-        io.github.youndie.razves:gradle-plugin
-        io.github.youndie.razves:io.github.youndie.razves.gradle.plugin
+      #
+      # ONE COORDINATE, AND NOT THE PLUGIN. proba asks what a compile classpath receives, and says of
+      # the other two that the question does not apply to them: a Gradle plugin is loaded by a tool
+      # rather than resolved by a compiler, and a plugin marker carries no module metadata to read.
+      # Listing them anyway buys a job that is red on every publish for a reason nobody caused, which
+      # is how a gate stops being read. What checks the plugin instead is a consumer that applies it
+      # by id - against a build-local repository in every run of SizeReportTaskTest, and against this
+      # server before B-25 was closed.
+      coordinates: io.github.youndie.razves:core
     # Named one by one rather than `secrets: inherit`: this hands them to a workflow in another
     # repository, and the two it needs are the two it gets.
     secrets:
