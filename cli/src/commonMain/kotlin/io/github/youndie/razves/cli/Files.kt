@@ -4,6 +4,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
+import kotlinx.io.write
 
 /**
  * The file system, kept out of `core` on purpose.
@@ -14,6 +15,12 @@ import kotlinx.io.readByteArray
  */
 internal object Files {
     fun read(path: String): ByteArray = SystemFileSystem.source(Path(path)).buffered().use { it.readByteArray() }
+
+    /** pprof is a gzipped protobuf, so it goes to a file rather than through a terminal. */
+    fun write(
+        path: String,
+        bytes: ByteArray,
+    ): Unit = SystemFileSystem.sink(Path(path)).buffered().use { it.write(bytes) }
 
     fun exists(path: String): Boolean = SystemFileSystem.metadataOrNull(Path(path)) != null
 

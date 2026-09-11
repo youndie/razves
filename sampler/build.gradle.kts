@@ -13,6 +13,10 @@ plugins {
 kotlin {
     jvm()
 
+    // The end-to-end test parses the dump with `core` and aggregates it. A TEST dependency only:
+    // what goes into somebody else process is this module and nothing else.
+    sourceSets.jvmTest.dependencies { implementation(project(":core")) }
+
     linuxX64 {
         compilations.getByName("main").cinterops.create("sampler")
 

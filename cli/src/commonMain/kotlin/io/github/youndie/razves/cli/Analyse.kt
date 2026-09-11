@@ -2,6 +2,10 @@ package io.github.youndie.razves.cli
 
 import io.github.youndie.razves.klib.Klib
 import io.github.youndie.razves.klib.KlibReader
+import io.github.youndie.razves.profile.Pprof
+import io.github.youndie.razves.profile.Profiling
+import io.github.youndie.razves.profile.SampleDump
+import io.github.youndie.razves.profile.TextProfile
 import io.github.youndie.razves.read.BinaryImage
 import io.github.youndie.razves.read.ElfReader
 import io.github.youndie.razves.read.MachOReader
@@ -42,6 +46,63 @@ public object Analyse {
             OutputFormat.TEXT -> TextReport.render(document, rows)
             OutputFormat.JSON -> document.toJson()
         }
+    }
+
+    /**
+     * Where the time went, out of a dump a sampled process left behind and the binary it was taken
+     * in.
+     *
+     * **Two files, and neither of them is the running program.** The sampler ships addresses and
+     * nothing else - no symbol is read inside somebody else process - so this is where the names
+     * come from, out of the same binary razves reads to size one.
+     */
+    public fun profile(
+        dumpPath: String,
+        binaryPath: String,
+        klibRoots: List<String>,
+        rows: Int,
+    ): String {
+        val (dump, profile) = profileOf(dumpPath, binaryPath, klibRoots)
+        return TextProfile.render(profile, dump, rows)
+    }
+
+    /** The same aggregation, written as pprof for the viewers people already run. */
+    public fun profilePprof(
+        dumpPath: String,
+        binaryPath: String,
+        klibRoots: List<String>,
+    ): ByteArray {
+        require(Files.exists(binaryPath)) { "$binaryPath does not exist" }
+        require(Files.exists(dumpPath)) { "$dumpPath does not exist" }
+        val dump = SampleDump.parse(Files.read(dumpPath).decodeToString(), dumpPath)
+        val image = read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
+        val klibs = klibRoots.flatMap { readKlibs(it) }
+        return Pprof.of(
+            image = image,
+            stacks = dump.stacks,
+            klibs = klibs.ifEmpty { null },
+            period = dump.hz?.let { 1_000_000_000L / it },
+            dropped = dump.dropped,
+        )
+    }
+
+    private fun profileOf(
+        dumpPath: String,
+        binaryPath: String,
+        klibRoots: List<String>,
+    ): Pair<SampleDump, io.github.youndie.razves.profile.Profile> {
+        require(Files.exists(dumpPath)) { "$dumpPath does not exist" }
+        require(Files.exists(binaryPath)) { "$binaryPath does not exist" }
+        val dump = SampleDump.parse(Files.read(dumpPath).decodeToString(), dumpPath)
+        val image = read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
+        val klibs = klibRoots.flatMap { readKlibs(it) }
+        return dump to
+            Profiling.of(
+                image = image,
+                stacks = dump.stacks,
+                klibs = klibs.ifEmpty { null },
+                dropped = dump.dropped,
+            )
     }
 
     /**

@@ -25,7 +25,7 @@ import com.github.ajalt.clikt.parameters.types.int
  * The cost is mordant's help formatting, which a size tool does not need.
  */
 public fun main(args: Array<String>) {
-    val razves = Razves().subcommands(Report(), Diff())
+    val razves = Razves().subcommands(Report(), Diff(), ProfileCommand())
     try {
         razves.parse(args)
     } catch (e: CliktError) {
@@ -87,6 +87,38 @@ private class Diff : CoreCliktCommand(name = "diff") {
     }
 }
 
+private class ProfileCommand : CoreCliktCommand(name = "profile") {
+    override fun help(context: Context): String =
+        "Where the time went, from a sample dump and the binary it was taken in."
+
+    private val dump by argument(name = "dump", help = "What the sampled process wrote.")
+
+    private val binary by argument(name = "binary", help = "The unstripped binary the samples were taken in.")
+
+    private val klibs by option("--klibs")
+        .multiple()
+        .help("A directory of klibs, repeatable. Without them the profile stops at package level.")
+
+    private val rows by option("--rows").int().default(20).help("How many rows of each table to print.")
+
+    private val out by option("--out")
+        .help(
+            "Write pprof here instead of printing a table. The format needs a file rather than a " +
+                "terminal: it is a gzipped protobuf.",
+        )
+
+    override fun run() {
+        val target = out
+        if (target == null) {
+            echo(refused { Analyse.profile(dump, binary, klibs, rows) })
+        } else {
+            val bytes = refusedBytes { Analyse.profilePprof(dump, binary, klibs) }
+            Files.write(target, bytes)
+            echo("wrote ${bytes.size} bytes of pprof to $target")
+        }
+    }
+}
+
 /**
  * A refusal reaches the reader as a sentence, not as a stack trace.
  *
@@ -96,6 +128,15 @@ private class Diff : CoreCliktCommand(name = "diff") {
  * exception class, which reads like a crash in the tool rather than an answer about the input.
  * [CliktError] is what clikt already prints and exits non-zero on.
  */
+private inline fun refusedBytes(block: () -> ByteArray): ByteArray =
+    try {
+        block()
+    } catch (e: IllegalArgumentException) {
+        throw CliktError(e.message ?: "razves refused the input and did not say why, which is a bug")
+    } catch (e: IllegalStateException) {
+        throw CliktError(e.message ?: "razves refused the input and did not say why, which is a bug")
+    }
+
 private inline fun refused(block: () -> String): String =
     try {
         block()

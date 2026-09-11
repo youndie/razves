@@ -40,10 +40,23 @@ static volatile uint64_t razves_read = 0;
 static timer_t razves_timer;
 static int razves_armed = 0;
 
+// THE LEAF IS THE INTERRUPTED INSTRUCTION, NOT THE HANDLER.
+//
+// backtrace() is called from inside the signal handler, so its frame 0 is this function and its
+// frame 1 is the kernel trampoline that called it. Written naively, every sample in every profile
+// therefore has the same leaf - and razves duly reported one C function as 100% of the time, which
+// is how this was found: the first end-to-end run of the live path, on a program whose work is
+// entirely Kotlin. Nothing in the unit tests could have seen it, because they hand the aggregation
+// stacks a test made up.
+//
+// The interrupted program counter is in the context the kernel passes here, exact and free. It goes
+// in as frame 0, and the walked frames follow from index RAZVES_SKIP - past this handler and past
+// the trampoline.
+#define RAZVES_SKIP 2
+
 static void razves_handler(int sig, siginfo_t *info, void *ctx) {
     (void) sig;
     (void) info;
-    (void) ctx;
     void *buf[RAZVES_DEPTH];
     int n = backtrace(buf, RAZVES_DEPTH);
     uint64_t t = razves_taken;
@@ -53,8 +66,22 @@ static void razves_handler(int sig, siginfo_t *info, void *ctx) {
         return;
     }
     uint32_t slot = (uint32_t) (t % RAZVES_SLOTS);
-    for (int i = 0; i < n; i++) razves_frames[slot][i] = (uint64_t) buf[i];
-    razves_depth[slot] = (uint32_t) n;
+    uint32_t depth = 0;
+    ucontext_t *uc = (ucontext_t *) ctx;
+    if (uc != NULL) {
+        razves_frames[slot][depth++] = (uint64_t) uc->uc_mcontext.gregs[REG_RIP];
+    }
+    // And the walked frames may repeat it: on this unwinder buf[RAZVES_SKIP] IS the interrupted
+    // function, at the same address the context carries. Dropping the duplicate rather than skipping
+    // a fixed three, because the extra frame is a fact about this unwinder and the comparison is
+    // free - a profile with a self-recursive edge on every sample is a profile every viewer draws
+    // wrongly.
+    int from = RAZVES_SKIP;
+    if (depth > 0 && from < n && (uint64_t) buf[from] == razves_frames[slot][0]) from++;
+    for (int i = from; i < n && depth < RAZVES_DEPTH; i++) {
+        razves_frames[slot][depth++] = (uint64_t) buf[i];
+    }
+    razves_depth[slot] = depth;
     razves_taken = t + 1;
 }
 

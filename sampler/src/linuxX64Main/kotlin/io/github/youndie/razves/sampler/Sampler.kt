@@ -1,6 +1,9 @@
 package io.github.youndie.razves.sampler
 
 import kotlinx.cinterop.ExperimentalForeignApi
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fputs
 import razves.sampler.native.razves_depth_at
 import razves.sampler.native.razves_dropped_count
 import razves.sampler.native.razves_frame_at
@@ -67,6 +70,60 @@ public object Sampler {
 
     /** Idempotent, because a sampler left armed in somebody else process is the failure that matters. */
     public fun stop(): Unit = razves_stop()
+
+    /**
+     * The samples as the text dump razves reads, header and all.
+     *
+     * **Built here rather than by `core`, because `core` is not welcome in somebody else process.**
+     * The format is defined by `SampleDump` on the reading side; this is four lines of string
+     * building, which is a cheaper price than putting a serialisation library in the address space of
+     * a program that only wanted to be measured.
+     *
+     * The header carries what only this process knows and razves cannot recover afterwards: signals
+     * delivered, samples the ring could not hold, the rate asked for and the clock it was asked on.
+     */
+    public fun dump(
+        binaryPath: String? = null,
+        hz: Int? = null,
+        clock: SamplingClock? = null,
+    ): String =
+        buildString {
+            appendLine("razves-samples 1")
+            binaryPath?.let { appendLine("binary $it") }
+            appendLine("taken $taken")
+            appendLine("dropped $dropped")
+            hz?.let { appendLine("hz $it") }
+            clock?.let { appendLine("clock ${it.name.lowercase()}") }
+            for (stack in drain()) {
+                appendLine(stack.joinToString(" ") { "0x" + it.toULong().toString(16) })
+            }
+        }
+
+    /**
+     * Writes [dump] to a file, through libc rather than through a file-system library.
+     *
+     * One more thing this module does not depend on. A profiled program has its own opinions about
+     * what it links, and the sampler earns its place by asking for nothing.
+     */
+    public fun writeDump(
+        path: String,
+        binaryPath: String? = null,
+        hz: Int? = null,
+        clock: SamplingClock? = null,
+    ): Unit = writeText(path, dump(binaryPath, hz, clock))
+
+    /** The same write, for a caller that already has the text and wants to count what is in it. */
+    public fun writeText(
+        path: String,
+        text: String,
+    ) {
+        val file = fopen(path, "w") ?: error("razves could not open $path for writing")
+        try {
+            fputs(text, file)
+        } finally {
+            fclose(file)
+        }
+    }
 
     /**
      * Every sample still in the ring, leaf frame first, and marks them read.
