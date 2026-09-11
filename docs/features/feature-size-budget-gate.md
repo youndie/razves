@@ -2,7 +2,7 @@
 id: feature-size-budget-gate
 title: Size budget — a red build when the binary grows
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - core
@@ -14,7 +14,7 @@ tags: [gradle, gate, ci]
 
 # Size budget — a red build when the binary grows
 
-> `status: draft` — nothing below is implemented.
+> `status: active` — nothing below is implemented.
 
 ## 1. Overview
 
@@ -72,50 +72,67 @@ commented out the first time a Ktor patch release trips it.
 
 ## 5. Scenarios (BDD / test cases)
 
-### Scenario: a binary under budget passes — *target*
+### Scenario: a binary under budget passes
 * **Given:** `budget = 50.MiB` and a 20 MB binary.
 * **When:** `sizeBudgetCheck` runs.
 * **Then:** the task succeeds and prints the total and the headroom.
+* **Automated:** `BudgetTest.aBinaryUnderBudgetPassesAndSaysByHowMuch`,
+  `SizeReportTaskTest.aBinaryUnderItsCeilingPassesCheck`
 
-### Scenario: a binary over budget fails, naming rows — *target*
+### Scenario: a binary over budget fails, naming rows
 * **Given:** `budget = 15.MiB` and a 20 MB binary.
 * **When:** `sizeBudgetCheck` runs.
 * **Then:** the build fails.
 * **And:** the message states the total, the budget and the overage.
-* **And:** it lists the largest rows of the report, so the reader can see what to cut.
+* **And:** it lists the largest rows of the report, so the reader can see what to cut — a ceiling can
+  be breached on the first build, when there is no baseline to diff against.
+* **Automated:** `BudgetTest.aBinaryOverBudgetFailsAndNamesWhatIsInIt`,
+  `SizeReportTaskTest.aBinaryOverItsCeilingFailsTheBuildAndNamesWhatIsInIt`
 
-### Scenario: a delta rule with no baseline fails loudly — *target*
+### Scenario: a delta rule with no baseline fails loudly
 * **Given:** `deltaPerChange = 3.percent` and no baseline file.
 * **When:** `sizeBudgetCheck` runs.
 * **Then:** the build fails, naming the baseline task to run.
 * **And:** it does **not** pass by treating a missing baseline as zero growth.
+* **Automated:** `BudgetTest.aGrowthBudgetWithNoBaselineFailsLoudlyAndNamesTheTask`,
+  `SizeReportTaskTest.aGrowthBudgetWithNoBaselineFailsRatherThanPassingQuietly`
 
-### Scenario: growth within the delta passes — *target*
+### Scenario: growth within the delta passes
 * **Given:** a baseline of 20,000,000 B, `deltaPerChange = 3.percent`, and a current binary of
   20,400,000 B (+2.0%).
 * **Then:** the task succeeds.
+* **Automated:** `BudgetTest.growthWithinTheDeltaPasses`
 
-### Scenario: growth beyond the delta fails, naming the rows that caused it — *target*
+### Scenario: growth beyond the delta fails, naming the rows that caused it
 * **Given:** the same baseline and a current binary of 21,000,000 B (+5.0%).
 * **Then:** the build fails.
 * **And:** the message lists row deltas largest first, so a reader sees which dependency grew
   rather than only that something did.
+* **And:** the growth is printed in bytes as well as a share — a share that rounds to zero without
+  being zero gets four more places, because "0.0%, and 0.0% is allowed" is not a sentence.
+* **Automated:** `BudgetTest.growthBeyondTheDeltaFailsAndPrintsTheRowsThatCausedIt`,
+  `BudgetTest.aGrowthTooSmallForOneDecimalIsStillPrintedAsANumber`,
+  `SizeReportTaskTest.growthBeyondTheDeltaFailsAndNamesTheRowsThatCausedIt`
 
-### Scenario: the check never rewrites the baseline — *target*
+### Scenario: the check never rewrites the baseline
 * **Given:** any breach.
 * **When:** `sizeBudgetCheck` runs.
 * **Then:** the baseline file is unchanged on disk.
+* **Automated:** `SizeReportTaskTest.aBreachLeavesTheBaselineAlone`,
+  `SizeReportTaskTest.theBaselineTaskIsNotPartOfCheck`
 
-### Scenario: turning the gate off says so — *target*
+### Scenario: turning the gate off says so
 * **Given:** the disable property set.
 * **When:** the build runs.
 * **Then:** it succeeds and the log carries a line naming the property and the fact that the size
   gate did not run.
+* **Automated:** `SizeReportTaskTest.turningTheGateOffSaysSo`
 
-### Scenario: the task is up to date on a second run — *target*
+### Scenario: the task is up to date on a second run
 * **Given:** a successful `sizeBudgetCheck` and no change to the binary, the klibs or the baseline.
 * **When:** it runs again.
 * **Then:** Gradle reports it as `UP-TO-DATE`.
+* **Automated:** `SizeReportTaskTest.theTaskIsUpToDateOnASecondRunAndCacheable`
 
 ## 6. Out of scope
 

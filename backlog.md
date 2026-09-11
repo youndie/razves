@@ -37,11 +37,10 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-14](docs/backlog/B-14-budget-gate.md) `[ ]` | The budget gate, and a failure message that names the rows that moved | P0 | M | B-13 |
 | [B-09](docs/backlog/B-09-c-attribution-by-archive.md) `[?]` | Attribute C symbols to the static archive that defines them | P2 | L | - |
 | [B-16](docs/backlog/B-16-run-on-the-three-subjects.md) `[ ]` | Report on shildik, booblik and telek, and write the article from the numbers | P2 | M | B-10 |
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-14 |
@@ -50,7 +49,7 @@ layer, so re-prioritising an item must never move its file.
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[ ]` | Attribute NOBITS sections so uninitialised state has an owner | P3 | S | B-20 |
 
-## Closed (14)
+## Closed (15)
 
 **Read the file, and prove you read all of it**
 
@@ -74,6 +73,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-11](docs/backlog/B-11-cli.md) `[x]` - The CLI: report and diff for any binary, with optional klibs
 - [B-12](docs/backlog/B-12-gradle-size-report.md) `[x]` - Gradle plugin: sizeReport, wired to the link tasks, configuration-cache clean
 - [B-13](docs/backlog/B-13-baseline-and-diff.md) `[x]` - A committed baseline and a row-level diff
+- [B-14](docs/backlog/B-14-budget-gate.md) `[x]` - The budget gate, and a failure message that names the rows that moved
 
 <!-- END INDEX -->
 

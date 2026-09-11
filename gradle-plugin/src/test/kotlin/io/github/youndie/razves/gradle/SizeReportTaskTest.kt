@@ -250,12 +250,110 @@ class SizeReportTaskTest {
         assertTrue("new" in result.output)
     }
 
+    @Test
+    fun aBinaryOverItsCeilingFailsTheBuildAndNamesWhatIsInIt() {
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { budget = 1.KiB }")
+
+        val result = runFailing("check")
+
+        assertTrue("over its size budget" in result.output)
+        assertTrue("over by:" in result.output)
+        assertTrue("The largest things in it:" in result.output, "a ceiling can be breached on the first build")
+    }
+
+    @Test
+    fun aBinaryUnderItsCeilingPassesCheck() {
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { budget = 500.MiB }")
+
+        val result = run("check")
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":$GATE")?.outcome)
+        assertTrue("under a budget of" in result.output)
+    }
+
+    @Test
+    fun aGrowthBudgetWithNoBaselineFailsRatherThanPassingQuietly() {
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { deltaPerChange = 3.percent }")
+
+        val result = runFailing("check")
+
+        assertTrue("no baseline" in result.output)
+        assertTrue("sizeBaselineWriteDebugExecutable" in result.output)
+    }
+
+    @Test
+    fun growthBeyondTheDeltaFailsAndNamesTheRowsThatCausedIt() {
+        // The whole argument for the gate. A total gives the reader nothing to decide with.
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { deltaPerChange = 0.percent }")
+        run("sizeBaselineWriteDebugExecutable")
+        addAPackage()
+
+        val result = runFailing("check")
+
+        assertTrue("grew more than its budget allows" in result.output)
+        assertTrue("BY PACKAGE" in result.output)
+        assertTrue("subject.extra" in result.output, "the package that caused it is named")
+    }
+
+    @Test
+    fun aBreachLeavesTheBaselineAlone() {
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { deltaPerChange = 0.percent }")
+        run("sizeBaselineWriteDebugExecutable")
+        val committed = File(projectDir, "razves/debugExecutable.json")
+        val before = committed.readText()
+        addAPackage()
+
+        runFailing("check")
+
+        assertEquals(before, committed.readText(), "a gate that updates its own baseline passes forever")
+    }
+
+    @Test
+    fun turningTheGateOffSaysSo() {
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { budget = 1.KiB }")
+
+        val result = run("check", "-Prazves.skip=true")
+
+        assertTrue("the size gate is off for this build" in result.output)
+        assertTrue("razves.skip" in result.output, "a silent bypass becomes the default state within a quarter")
+    }
+
+    /** One new package with a body big enough to leave a mark, reachable from `main`. */
+    private fun addAPackage() {
+        File(projectDir, "src/commonMain/kotlin/subject/Extra.kt").writeText(
+            listOf(
+                "package subject.extra",
+                "",
+                "fun churn(seed: Int): Int {",
+                "    var acc = seed",
+                "    for (i in 1..64) acc = acc * 31 + i * i - (acc shr 3)",
+                "    return acc",
+                "}",
+            ).joinToString("\n"),
+        )
+        File(projectDir, "src/commonMain/kotlin/subject/Main.kt").let { main ->
+            main.writeText(
+                main.readText().replace(
+                    "println(LocalDate(2026, 9, 11).dayOfYear)",
+                    "println(LocalDate(2026, 9, 11).dayOfYear + subject.extra.churn(3))",
+                ),
+            )
+        }
+    }
+
     private fun skipped() {
         println("SKIPPED SizeReportTaskTest: this host has no Kotlin/Native target razves can link here.")
     }
 
     private companion object {
         const val TASK = "sizeReportDebugExecutable"
+        const val GATE = "sizeBudgetCheckDebugExecutable"
 
         /** Pinned rather than read from the catalog: the test project is a separate build. */
         const val KOTLIN_VERSION = "2.4.10"

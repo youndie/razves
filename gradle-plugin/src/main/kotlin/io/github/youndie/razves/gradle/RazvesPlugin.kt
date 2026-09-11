@@ -1,5 +1,6 @@
 package io.github.youndie.razves.gradle
 
+import io.github.youndie.razves.report.Measure
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
@@ -22,6 +23,7 @@ public class RazvesPlugin : Plugin<Project> {
         extension.packageDepth.convention(DEFAULT_PACKAGE_DEPTH)
         extension.rows.convention(DEFAULT_ROWS)
         extension.baselineDirectory.convention(DEFAULT_BASELINE_DIRECTORY)
+        extension.measure.convention(Measure.FILE_SIZE)
 
         target.plugins.withId("org.jetbrains.kotlin.multiplatform") {
             val kotlin = target.extensions.getByType(KotlinMultiplatformExtension::class.java)
@@ -96,6 +98,37 @@ public class RazvesPlugin : Plugin<Project> {
             task.rows.set(extension.rows)
             task.text.set(reports.map { it.file("${binary.name}-diff.txt") })
         }
+
+        val gate =
+            project.tasks.register(
+                "sizeBudgetCheck${binary.name.replaceFirstChar { it.uppercase() }}",
+                SizeBudgetCheckTask::class.java,
+            ) { task ->
+                task.group = "verification"
+                task.description = "Fail the build if ${binary.name} is over budget or grew too much."
+                task.report.set(report.flatMap { it.json })
+                task.baseline.fileProvider(baseline.map { it.asFile }.filter { it.isFile })
+                task.budget.set(extension.budget)
+                task.deltaPerChange.set(extension.deltaPerChange)
+                task.measure.set(extension.measure)
+                task.baselineTaskName.set(baselineTaskName)
+                task.rows.set(extension.rows)
+                task.skipped.set(
+                    project.providers
+                        .gradleProperty(SizeBudgetCheckTask.SKIP_PROPERTY)
+                        .map { it != "false" }
+                        .orElse(false),
+                )
+                task.verdict.set(reports.map { it.file("${binary.name}-budget.txt") })
+            }
+
+        // In `check`, which is the point of it - and only this one. `sizeBaselineWrite` stays out,
+        // because anything that both verifies and rewrites its own reference passes forever.
+        //
+        // `matching` rather than `named`: a project without a lifecycle plugin has no `check` task at
+        // all, and `named` on a missing task fails the configuration of every build that applies
+        // razves to a module that happens not to have one.
+        project.tasks.matching { it.name == "check" }.configureEach { it.dependsOn(gate) }
     }
 
     private companion object {

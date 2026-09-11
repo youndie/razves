@@ -110,9 +110,12 @@ Published to the Gradle Plugin Portal and Maven Central. Version line and publis
 |---|---|---|
 | `binarySize.budget` | absolute ceiling | no |
 | `binarySize.deltaPerChange` | growth against the committed baseline | no |
-| `binarySize.measure` | `fileSize` (default) or `allocated` | no |
+| `binarySize.measure` | `Measure.FILE_SIZE` (default) or `Measure.ALLOCATED` | no |
 | `binarySize.baseline` | baseline file location | no |
 | `razves.skip` | Gradle property; disables the gate and logs that it did | no |
+
+`50.MiB`, `512.KiB` and `3.percent` are member extensions of the extension, so they resolve inside
+the `binarySize { }` block and nowhere else.
 
 Do not copy the full list here as it grows — the extension class is the source of truth.
 
