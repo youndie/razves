@@ -1,7 +1,7 @@
 ---
 id: B-18
 title: "Reconcile the 46 MiB figure, or retire it"
-status: question
+status: done
 priority: P2
 size: XS
 stage: stage-0-readers

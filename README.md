@@ -24,13 +24,21 @@ binarySize {
 
 ## What the research already found
 
-Measured on four real Kotlin/Native binaries on 2026-09-11 — details and verification addresses in
-the research document:
+Measured by razves on six real Kotlin/Native binaries on 2026-09-11, all Kotlin 2.4.10 — details and
+verification addresses in the research document:
 
-* **Kotlin is a minority of a release binary.** 36–40% of the attributed bytes across four subjects.
+* **The Kotlin/Native runtime is a fixed cost of about 40 KB.** 37,889 to 40,871 bytes across all
+  six, a spread of under 3 KB over a **43× range of file size**. Its share falls from 17.6% to 0.2%,
+  so "the runtime is 17.6% of this binary" means the binary does almost nothing — not that the
+  runtime is heavy.
+* **The floor is 496,232 bytes**: one `println`, one dependency, of which 135,032 is the symbol
+  table.
+
+* **Kotlin is a minority of a large release binary.** 36–40% of the attributed bytes in `shildik`,
+  against 77% in a binary that is almost all Kotlin.
   The majority is statically linked C — OpenSSL arriving through `ktor-client-curl` — plus, where a
   Rust-backed driver is used, about 1.3 MB of `tokio` and `sqlx`.
-* **The symbol table is 19–21% of the file**, in every subject. It is the largest single removable
+* **The symbol table is 19–27% of the file**, in every one of the six. It is the largest single removable
   thing in a Kotlin/Native binary, and it is also exactly what razves reads.
 * **The Kotlin/Native toolchain does not ship a binary reader.** The LLVM distribution it downloads
   is `…-essentials-` and contains no `llvm-nm`, `llvm-size`, `llvm-objdump` or `llvm-strip`. So

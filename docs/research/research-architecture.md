@@ -124,6 +124,16 @@ unchanged to a tenth of a percent, and the runtime now has a number of its own �
 | The Kotlin bytes of that binary at package depth 3: `ru.workinprogress.shildik` 991,047, `io.ktor.server` 443,998, `io.ktor.client` 358,921, `dev.whyoleg.cryptography` 323,553, `io.ktor.http` 264,911, `kotlin.text.regex` 251,770 | razves' own report |
 | Every gap between adjacent file regions — the ELF header, the program header table, each section that occupies file bytes, the section header table — is **strictly smaller than the alignment of the region that follows it**, in all four subjects, over 34 to 43 regions each | scripted layout sweep, 2026-09-11 |
 
+**Consequence 0 — the subject is the binary, and the brief's headline number was the image.**
+"Why is the binary 46 MiB" turns out to be two questions. `shildik`'s own README records 46 MB for
+`ghcr.io/youndie/shildik-sqlite` and 44 MB for `ghcr.io/youndie/shildik`; the binaries inside them
+are 21,555,648 and 20,543,736 bytes. The other ~24 MB is `gcr.io/distroless/cc-debian12` plus
+`libcrypt.so.1` — which Kotlin/Native links unconditionally — and `libz.so.1`, read off
+`docker/native.Dockerfile`. That makes the binary the *right* subject rather than a smaller one: the
+base is a fixed cost chosen once, and the binary is the half that grows with every dependency and the
+half a size report can attribute. It is also a distinction worth making loudly, because "the binary
+is 46 MiB" and "the image is 46 MB" are one letter apart and lead somewhere different.
+
 **Consequence 1 — the headline of the first article is not the one the brief predicted.** The
 brief expects the answer to "why is it this big" to be *stdlib, ktor, serialization*. In every
 release subject measured, Kotlin is a **minority** of the attributed bytes: 36–40%. The majority
@@ -172,6 +182,46 @@ of dynamic linking tables, and 0.74 MB of `.rodata` with no owning symbol. The r
 these as sections rather than lump them into one anonymous remainder — a reader who sees
 "unattributed: 3.3 MB" learns nothing, and a reader who sees "`.eh_frame`: 1.29 MB" learns that
 exception unwinding costs them 6% of the binary.
+
+### 1.2a The runtime is a fixed cost, and the floor is half a megabyte
+
+Six binaries, all Kotlin 2.4.10, all `linuxX64`, all measured by razves itself on 2026-09-11. The
+first is this repository's own test fixture — one `println`, one dependency — and is as close to a
+floor as a Kotlin/Native binary gets.
+
+| Subject | File | Kotlin | K/N runtime | runtime share | metadata |
+|---|---|---|---|---|---|
+| `razves:fixture` release | 496,232 | 68,779 | **37,889** | 17.6% | 27.2% |
+| `booblik` conformance release | 708,304 | 183,956 | **38,013** | 10.8% | 26.9% |
+| `razves:cli` release | 2,477,728 | 1,182,821 | **38,402** | 2.5% | 26.1% |
+| `shildik:cli` release | 15,398,536 | 3,772,529 | **40,871** | 0.4% | 19.0% |
+| `shildik:distribution` release | 20,543,736 | 5,125,516 | **40,871** | 0.3% | 21.0% |
+| `shildik:distribution-sqlite` release | 21,555,648 | 5,125,151 | **40,871** | 0.2% | 20.1% |
+
+*Shares are of the attributed bytes; `metadata` is of the file. Sources:
+`booblik-native-conformance/build/bin/linuxX64/releaseExecutable/conformance.kexe` and the four
+`shildik` binaries of §1.2, plus this repository's own two.*
+
+| Fact | Where verified |
+|---|---|
+| The Kotlin/Native runtime is **37,889 to 40,871 bytes** across all six — a span of under 3 KB over a **43×** range of file size | razves' origin split of each |
+| Its share of the attributed bytes therefore falls from **17.6% to 0.2%** | same |
+| A Kotlin/Native binary that prints one line and uses one dependency is **496,232 bytes**, of which 135,032 is its symbol table | `razves:fixture`, release |
+| Symbol tables and debug-free metadata are **19% to 27%** of the file in every one of the six | same |
+
+**Consequence 1 — the runtime is not the thing to optimise, ever.** It is a fixed cost of about 40 KB
+and it does not grow with the program. A report that puts it near the top is a report of a small
+binary, and the correct reading of "the Kotlin/Native runtime is 17.6% of this" is "this binary does
+almost nothing", not "the runtime is heavy".
+
+**Consequence 2 — the floor is not zero and it is worth stating.** Half a megabyte before a line of
+business logic sets the shape of every size conversation about Kotlin/Native, and a tool that reports
+a 700 KB binary without saying that 500 KB of it is unavoidable invites the wrong conclusion.
+
+**Consequence 3 — the share of Kotlin says what kind of program this is.** 31.9% in the fixture,
+where the runtime and libc dominate; 77.2% in the CLI, which is almost all Kotlin; 36–40% in
+`shildik`, where OpenSSL and a Rust driver are the majority. The origin split is a shape, not just a
+number, and reading it is most of what a size report is for.
 
 ### 1.3 The Kotlin/Native symbol grammar, as it actually appears
 
@@ -619,5 +669,5 @@ Scattered above; gathered here because these are the entries most likely to be r
 | Parse `llvm-nm --size-sort` output | Sizes are always zero on Mach-O; Apple targets need an address-delta algorithm | §1.4 |
 | Package → module needs Gradle; the CLI cannot do it | `klib info` carries the mapping, so the CLI can do it from a klib directory | §1.5, [D8](#d8-one-core-two-front-ends-and-the-core-knows-nothing-about-gradle) |
 | Package → module is a mapping | 9 of 568 packages are claimed by two modules | §1.5, [D5](#d5-ambiguous-packages-are-reported-as-ambiguous-not-resolved-by-a-tie-break) |
-| `shildik` is 46 MiB | The binaries on disk are 15.4–21.6 MB release and 39.8 MB debug. **Not reconciled.** The 46 MiB figure may name a container image, an older build, or a different target; it is not reproduced by any artifact in the repository as of 2026-09-11 | §1.2 |
+| `shildik` is 46 MiB | **It names a container image, not a binary.** `shildik/README.md` records `ghcr.io/youndie/shildik-sqlite` at 46 MB and `ghcr.io/youndie/shildik` at 44 MB; the binaries inside them are 21,555,648 and 20,543,736 bytes, so the binary is 47% of the image. The rest is `gcr.io/distroless/cc-debian12`, `libcrypt.so.1`, `libz.so.1` and a migrations directory — about 24 MB of base that no Kotlin work will move | §1.2, B-18 |
 | Compare against bloaty in tests | Kept, but as the *second* oracle — arithmetic reconciliation is the one that runs everywhere | [D7](#d7-the-oracle-is-arithmetic-first-and-a-second-reader-second) |
