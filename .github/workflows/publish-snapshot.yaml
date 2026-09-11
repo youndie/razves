@@ -1,0 +1,44 @@
+# Publishing razves where another repository can reach it - B-25.
+#
+# The four steps this would otherwise spell out live in sborka: checkout, toolchain, version,
+# publish, plus the proba job that asks the repository what a consumer would actually resolve after
+# the upload. Five hand-written copies of that block existed across the portfolio before it was
+# shared, and no two of them knew the same things.
+#
+# ON A PUSH, and not only on a button. s3kn argues the other way - a snapshot that appears because
+# somebody pushed is a snapshot nobody knows the provenance of - and that is right for a library
+# whose consumers are people. razves has a different consumer: the sborka convention of B-17 applies
+# it by id on every repository that takes the convention, and a snapshot that only exists when
+# somebody remembers to click is the one that is three weeks behind main when it is needed.
+name: Publish razves snapshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  publish:
+    uses: youndie/sborka/.github/workflows/publish-wip.yaml@main
+    with:
+      # `build` in front of the publish rather than a separate `check`: this repository's tests
+      # need no service and no secret, so there is nothing the two must not share.
+      tasks: build publishAllPublicationsToWipRepository
+      # Kotlin/Native targets in every module. Without the cache every run downloads a compiler
+      # distribution before it does anything.
+      konan-cache: true
+      # One Linux host publishes all of it, macosArm64 included: `core` has no cinterop, so its
+      # Apple klib cross-compiles. What cannot cross-compile is a Mach-O *executable*, and the two
+      # modules that link one - `cli` and `fixture` - publish nothing.
+      #
+      # Without the version: it does not exist until the job has run, so it is appended on the other
+      # side.
+      coordinates: |
+        io.github.youndie.razves:core
+        io.github.youndie.razves:gradle-plugin
+        io.github.youndie.razves:io.github.youndie.razves.gradle.plugin
+    # Named one by one rather than `secrets: inherit`: this hands them to a workflow in another
+    # repository, and the two it needs are the two it gets.
+    secrets:
+      REPOSILITE_USER: ${{ secrets.REPOSILITE_USER }}
+      REPOSILITE_SECRET: ${{ secrets.REPOSILITE_SECRET }}
