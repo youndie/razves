@@ -3,6 +3,7 @@ package io.github.youndie.razves.report
 import io.github.youndie.razves.attribute.Mangling
 import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.attribute.Packages
+import io.github.youndie.razves.klib.Klib
 import io.github.youndie.razves.klib.ModuleOwner
 import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.read.BinaryImage
@@ -38,9 +39,13 @@ public object Attribution {
     public fun report(
         image: BinaryImage,
         packageDepth: Int = DEFAULT_PACKAGE_DEPTH,
-        modules: PackageToModule? = null,
+        klibs: Collection<Klib>? = null,
     ): SizeReport {
-        refuseWhatCannotBeReported(image, modules)
+        require(image.hasSymbolTable) {
+            "${image.name} is stripped - it carries no symbol table, so there is nothing in it to " +
+                "attribute. Point razves at the link output, before whatever removes the symbols."
+        }
+        val modules = klibs?.let { PackageToModule(compatible(image, it)) }
         val reconciliation = of(image)
         val owners = reconciliation.sections.flatMap { it.owners }
         val byOrigin = owners.groupBy { Mangling.originOf(it.symbol.name) }
@@ -115,34 +120,38 @@ public object Attribution {
     ): String = packageName.split('.').take(depth).joinToString(".")
 
     /**
-     * The two inputs that produce a report which looks fine and means nothing.
+     * The klibs that could have produced this binary, and a refusal when none could.
      *
-     * **A stripped binary.** `.symtab` and `.strtab` are 19-21% of the file in all four measured
-     * subjects, so they are the first thing a size-conscious build deletes - and they are exactly
-     * what razves reads. Without them every byte is unattributed, which is not a finding about the
-     * binary. Refused rather than warned about: a warning printed above a report is read after the
-     * reader has already believed the numbers.
+     * A klib declares the targets it was built for, and razves knows what the binary is, so a set
+     * handed in from a directory sweep can be filtered rather than merely objected to. That matters
+     * more than it sounds: pointing `--klibs` at a Gradle cache picks up the JS and Wasm standard
+     * libraries, whose `unique_name` is `kotlin` where the Kotlin/Native distribution calls the same
+     * library `stdlib` - and the pair then makes every standard-library package ambiguous. Measured
+     * on razves' own binary before this filter existed: 1,248,065 bytes, 36.3% of its Kotlin, in one
+     * `<ambiguous: kotlin, stdlib>` row.
      *
-     * **Klibs for the wrong target.** Each manifest carries `native_targets`, and a `linuxX64` binary
-     * attributed against `macosArm64` klibs produces module rows that are plausible and wrong. Only a
-     * clear contradiction is refused: if razves cannot name the binary's target, or the klibs name
-     * none, nothing is claimed and nothing is vetoed.
+     * A klib that declares no targets at all is metadata-only and was not what the linker read, so it
+     * goes too.
+     *
+     * **When razves cannot name the binary's target, nothing is filtered and nothing is refused.** A
+     * Mach-O without `LC_BUILD_VERSION` or an architecture razves does not know leaves it with no
+     * grounds, and a check without grounds must not act.
      */
-    private fun refuseWhatCannotBeReported(
+    private fun compatible(
         image: BinaryImage,
-        modules: PackageToModule?,
-    ) {
-        require(image.hasSymbolTable) {
-            "${image.name} is stripped - it carries no symbol table, so there is nothing in it to " +
-                "attribute. Point razves at the link output, before whatever removes the symbols."
+        klibs: Collection<Klib>,
+    ): Collection<Klib> {
+        if (image.targets.isEmpty() || klibs.isEmpty()) return klibs
+        val kept = klibs.filter { klib -> klib.targets.any { it in image.targets } }
+        require(kept.isNotEmpty()) {
+            "${image.name} is a ${image.targets.sorted().joinToString(" or ")} binary, and none of the " +
+                "${klibs.size} klibs supplied was built for it - they declare " +
+                "${klibs.flatMap { it.targets }.distinct().sorted().joinToString(
+                    ", ",
+                ).ifEmpty { "no target at all" }}. " +
+                "Attributing one against the other produces module rows that are plausible and wrong."
         }
-        val klibTargets = modules?.targets.orEmpty()
-        if (image.targets.isEmpty() || klibTargets.isEmpty()) return
-        require(image.targets.any { it in klibTargets }) {
-            "${image.name} is a ${image.targets.sorted().joinToString(" or ")} binary, and the klibs " +
-                "supplied were built for ${klibTargets.sorted().joinToString(", ")}. Attributing one " +
-                "against the other produces module rows that are plausible and wrong."
-        }
+        return kept
     }
 
     private fun moduleRowName(

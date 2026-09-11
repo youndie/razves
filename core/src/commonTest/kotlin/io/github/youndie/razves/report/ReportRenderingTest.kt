@@ -3,7 +3,6 @@ package io.github.youndie.razves.report
 import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.fixture.ElfBuilder
 import io.github.youndie.razves.klib.Klib
-import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.read.ElfReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,11 +30,11 @@ class ReportRenderingTest {
         val image = ElfReader.read(bytes, "sample.kexe")
         val modules =
             if (withModules) {
-                PackageToModule(listOf(Klib("io.ktor:ktor-http", listOf("linux_x64"), setOf("io.ktor.http"))))
+                listOf(Klib("io.ktor:ktor-http", listOf("linux_x64"), setOf("io.ktor.http")))
             } else {
                 null
             }
-        return Attribution.report(image, modules = modules)
+        return Attribution.report(image, klibs = modules)
     }
 
     @Test

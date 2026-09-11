@@ -26,9 +26,13 @@ so in the report header; without archives it labels the C attribution as heurist
 ## 2. API contracts
 
 ```
-razves report <binary> [--klibs <dir>] [--archives <dir>] [--format text|json]
-razves diff <baseline.json> <binary> [--klibs <dir>]
+razves report <binary> [--klibs <dir>]... [--format text|json] [--rows N]
 ```
+
+`--klibs` is repeatable rather than a separated list: a real link pulls klibs from the dependency
+cache *and* from the Kotlin/Native distribution, and a path separator inside one option is a shape
+people get wrong on Windows. `razves diff` arrives with
+[feature-size-diff](../features/feature-size-diff.md).
 
 The `json` format is the core's report model — the same file the plugin writes as a baseline, so a
 CLI report can be diffed against a build's baseline and the other way round.
@@ -37,10 +41,9 @@ CLI report can be diffed against a build's baseline and the other way round.
 
 | File | What is there |
 |---|---|
-| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/Main.kt` | command tree |
-| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/ReportCommand.kt` | `report` |
-| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/DiffCommand.kt` | `diff` |
-| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/render/` | the text renderer |
+| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/Main.kt` | the command tree, and why it is `clikt-core` |
+| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/Analyse.kt` | the one piece of work, as a function of strings |
+| `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/Files.kt` | everything that knows where a file is |
 
 ## 3. How it is built
 
@@ -84,10 +87,16 @@ None beyond the arguments above. No config file, no environment variables.
 
 ## 8. Quirks
 
-* **`clikt` splits five of its packages across two artifacts.** `com.github.ajalt.clikt.core` and
-  four neighbours are declared by both `clikt` and `clikt-mordant`
-  ([research §1.5](../research/research-architecture.md)), so razves reporting on *itself* will
-  print ambiguous rows. That is the right answer, it is visible in the tool's own output, and it is
-  the cheapest possible demonstration that the ambiguity handling works.
+* **`clikt` splits five of its packages across two artifacts, and the linker will not have it.**
+  `com.github.ajalt.clikt.core` and four neighbours are declared by both `clikt` and `clikt-mordant`
+  ([research §1.5](../research/research-architecture.md)). Linking against the umbrella artifact
+  fails with `ld.lld: error: duplicate symbol:
+  kfun:com.github.ajalt.clikt.core#selfAndAncestors…`, so the CLI depends on `clikt-core` and does
+  without mordant's help formatting. razves predicted the collision from the klib manifests before
+  the linker met it, which is the cheapest possible demonstration that the ambiguity handling works.
+* **The CLI cannot know the link classpath, so it filters by target instead.** A directory of klibs
+  is whatever a person pointed at; razves drops the ones that could not have produced this binary.
+  Without that, a Gradle cache contributes the JS and Wasm standard libraries — `unique_name=kotlin`
+  against the distribution's `stdlib` — and every standard-library package reads as ambiguous.
 * **The CLI's own binary is a subject.** Any regression in the readers shows up as a broken
   self-report, which is a better smoke test than anything written on purpose.

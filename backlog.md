@@ -37,12 +37,11 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (11)
+## Open (10)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-14](docs/backlog/B-14-budget-gate.md) `[ ]` | The budget gate, and a failure message that names the rows that moved | P0 | M | B-13 |
-| [B-11](docs/backlog/B-11-cli.md) `[ ]` | The CLI: report and diff for any binary, with optional klibs | P1 | M | - |
 | [B-12](docs/backlog/B-12-gradle-size-report.md) `[ ]` | Gradle plugin: sizeReport, wired to the link tasks, configuration-cache clean | P1 | M | - |
 | [B-13](docs/backlog/B-13-baseline-and-diff.md) `[ ]` | A committed baseline and a row-level diff | P1 | M | - |
 | [B-09](docs/backlog/B-09-c-attribution-by-archive.md) `[?]` | Attribute C symbols to the static archive that defines them | P2 | L | - |
@@ -53,7 +52,7 @@ layer, so re-prioritising an item must never move its file.
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[ ]` | Attribute NOBITS sections so uninitialised state has an owner | P3 | S | B-20 |
 
-## Closed (11)
+## Closed (12)
 
 **Read the file, and prove you read all of it**
 
@@ -71,6 +70,10 @@ layer, so re-prioritising an item must never move its file.
 - [B-10](docs/backlog/B-10-report-renderer.md) `[x]` - Render the report as text and as JSON, coverage next to every conclusion
 - [B-15](docs/backlog/B-15-refuse-stripped-and-mismatched.md) `[x]` - Refuse a stripped binary and a klib set for the wrong target
 - [B-22](docs/backlog/B-22-fold-undeclared-packages.md) `[x]` - Fold a package name no klib declares up to the longest one that is declared
+
+**Make it fail a build**
+
+- [B-11](docs/backlog/B-11-cli.md) `[x]` - The CLI: report and diff for any binary, with optional klibs
 
 <!-- END INDEX -->
 

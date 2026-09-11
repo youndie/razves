@@ -24,3 +24,7 @@ include(":core")
 // A Kotlin/Native binary of known composition, built by the test suite. Not published: it is the one
 // fixture that can show attribution working from Kotlin source all the way to a package row.
 include(":fixture")
+
+// The tool as a command. A native executable per target, because razves exists for people who ship
+// a single binary.
+include(":cli")

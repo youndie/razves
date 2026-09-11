@@ -3,7 +3,6 @@ package io.github.youndie.razves.report
 import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.fixture.ElfBuilder
 import io.github.youndie.razves.klib.Klib
-import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.read.ElfReader
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,7 +27,7 @@ class FoldedPackagesTest {
     }
 
     private fun klibs(vararg declared: Pair<String, List<String>>) =
-        PackageToModule(declared.map { (module, packages) -> Klib(module, listOf("linux_x64"), packages.toSet()) })
+        declared.map { (module, packages) -> Klib(module, listOf("linux_x64"), packages.toSet()) }
 
     @Test
     fun aCinteropStructClassFoldsIntoItsPackage() {
@@ -49,7 +48,7 @@ class FoldedPackagesTest {
             Attribution.report(
                 image,
                 packageDepth = Int.MAX_VALUE,
-                modules = klibs("org.jetbrains.kotlin.native.platform.posix" to listOf("platform.posix")),
+                klibs = klibs("org.jetbrains.kotlin.native.platform.posix" to listOf("platform.posix")),
             )
         assertEquals(listOf("platform.posix"), folded.packages.map { it.name })
         assertEquals(128, folded.packages.single().bytes, "both symbols, in one row")
@@ -60,7 +59,7 @@ class FoldedPackagesTest {
         val image = ElfReader.read(binary("kfun:platform.posix.addrinfo.\$init_global#internal"), "fixture")
         val map = klibs("org.jetbrains.kotlin.native.platform.posix" to listOf("platform.posix"))
 
-        val r = Attribution.report(image, packageDepth = Int.MAX_VALUE, modules = map)
+        val r = Attribution.report(image, packageDepth = Int.MAX_VALUE, klibs = map)
 
         assertEquals(listOf("org.jetbrains.kotlin.native.platform.posix"), r.modules.map { it.name })
         assertEquals(
@@ -80,8 +79,7 @@ class FoldedPackagesTest {
             Attribution.report(
                 image,
                 packageDepth = Int.MAX_VALUE,
-                modules =
-                    klibs("io.ktor:ktor-http" to listOf("io.ktor.http")),
+                klibs = klibs("io.ktor:ktor-http" to listOf("io.ktor.http")),
             )
 
         assertEquals(listOf("ru.workinprogress.shildik.core.di"), r.packages.map { it.name })
@@ -93,7 +91,7 @@ class FoldedPackagesTest {
         val image = ElfReader.read(binary("kfun:io.ktor.http.HttpStatusCode#toString(){}kotlin.String"), "fixture")
         val map = klibs("io.ktor:ktor-http" to listOf("io.ktor", "io.ktor.http"))
 
-        val r = Attribution.report(image, packageDepth = Int.MAX_VALUE, modules = map)
+        val r = Attribution.report(image, packageDepth = Int.MAX_VALUE, klibs = map)
 
         assertEquals(listOf("io.ktor.http"), r.packages.map { it.name }, "the longest declared prefix is itself")
     }
@@ -112,7 +110,7 @@ class FoldedPackagesTest {
         val map = klibs("org.jetbrains.kotlin.native.platform.posix" to listOf("platform.posix"))
 
         val bare = Attribution.report(image, packageDepth = Int.MAX_VALUE)
-        val folded = Attribution.report(image, packageDepth = Int.MAX_VALUE, modules = map)
+        val folded = Attribution.report(image, packageDepth = Int.MAX_VALUE, klibs = map)
 
         assertEquals(bare.bytesOf(Origin.KOTLIN), folded.bytesOf(Origin.KOTLIN))
         assertEquals(bare.packages.sumOf { it.bytes }, folded.packages.sumOf { it.bytes })

@@ -289,7 +289,7 @@ class RealBinaryTest {
             Attribution.report(
                 ElfReader.read(file.readBytes(), file.name),
                 packageDepth = Int.MAX_VALUE,
-                modules = PackageToModule(linkClasspathKlibs(roots0) + unpackedKlibs(roots0)),
+                klibs = linkClasspathKlibs(roots0) + unpackedKlibs(roots0),
             )
         // The application's own packages are not in any dependency's klib, so only the ones that
         // share a root with a declared package can be held against the list.
@@ -375,7 +375,7 @@ class RealBinaryTest {
         if (klibs.isEmpty()) return skipped("no readable klibs under $klibDir")
 
         val map = PackageToModule(klibs)
-        val r = Attribution.report(ElfReader.read(file.readBytes(), file.name), modules = map)
+        val r = Attribution.report(ElfReader.read(file.readBytes(), file.name), klibs = klibs)
 
         println("Kotlin modules of ${file.name}, from ${map.moduleCount} klibs:")
         r.modules.take(15).forEach {
@@ -423,9 +423,9 @@ class RealBinaryTest {
         val modules =
             klibDir?.let {
                 val roots = it.split(File.pathSeparatorChar).map(::File).filter { root -> root.isDirectory }
-                PackageToModule(linkClasspathKlibs(roots) + unpackedKlibs(roots))
+                linkClasspathKlibs(roots) + unpackedKlibs(roots)
             }
-        val report = Attribution.report(ElfReader.read(file.readBytes(), file.name), modules = modules)
+        val report = Attribution.report(ElfReader.read(file.readBytes(), file.name), klibs = modules)
         val document = ReportDocument.of(report)
 
         println(TextReport.render(document, rows = 12))
