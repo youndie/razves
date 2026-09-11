@@ -14,8 +14,6 @@ tags: [gradle, gate, ci]
 
 # Size budget — a red build when the binary grows
 
-> `status: active` — nothing below is implemented.
-
 ## 1. Overview
 
 The report is what makes razves interesting; the gate is what makes it get installed. Android has

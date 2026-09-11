@@ -46,11 +46,11 @@ What it deliberately does **not** do:
 | File | What is there |
 |---|---|
 | `core/src/commonMain/kotlin/io/github/youndie/razves/read/ElfReader.kt` | section headers, `.symtab`/`.strtab`, `st_size` |
-| `core/src/commonMain/kotlin/io/github/youndie/razves/read/MachO.kt` | load commands, `LC_SYMTAB`, address-delta sizing |
+| `core/src/commonMain/kotlin/io/github/youndie/razves/read/MachOReader.kt` | load commands, `LC_SYMTAB`, address-delta sizing |
 | `core/src/commonMain/kotlin/io/github/youndie/razves/attribute/Mangling.kt` | the twelve `k*:` prefixes, Rust v0 and legacy, Itanium C++ |
-| `core/src/commonMain/kotlin/io/github/youndie/razves/attribute/Origin.kt` | the origin buckets |
-| `core/src/commonMain/kotlin/io/github/youndie/razves/klib/KlibManifest.kt` | `unique_name`, package list, `native_targets` |
-| `core/src/commonMain/kotlin/io/github/youndie/razves/report/Reconcile.kt` | the two identities; the report fails if they do not hold |
+| `core/src/commonMain/kotlin/io/github/youndie/razves/attribute/Mangling.kt` | the origin buckets |
+| `core/src/commonMain/kotlin/io/github/youndie/razves/klib/Klib.kt` | `unique_name`, package list, `native_targets` |
+| `core/src/commonMain/kotlin/io/github/youndie/razves/report/Reconciliation.kt` | the identities; the report refuses to exist if they do not hold |
 | `core/src/commonTest/kotlin/io/github/youndie/razves/` | fixture-driven tests |
 
 ## 3. How it is built
@@ -97,11 +97,11 @@ service, no image, no health endpoint.
 ## 6. Local setup
 
 ```bash
-~/.claude/bin/wsl-run ./gradlew :core:allTests
+./gradlew :core:allTests
 ```
 
-Kotlin/Native targets build on the Linux box; `macosArm64` and any test that needs a Mach-O
-fixture built on the spot run locally with `LOCAL=1`.
+`macosArm64`, and any test that needs a Mach-O fixture linked on the spot, needs a mac: Apple
+targets do not cross-compile.
 
 ## 7. Configuration
 

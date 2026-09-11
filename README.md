@@ -18,11 +18,22 @@ binarySize {
 }
 ```
 
-> **Status: nothing is implemented yet.** What exists is the research and the plan, and the
-> research was measured rather than assumed. Start at
-> [`docs/research/research-architecture.md`](docs/research/research-architecture.md).
+> **Status: it works, and it is not published anywhere yet.** The readers, the attribution, the
+> CLI and the Gradle plugin are implemented and covered by 165 tests; every number on this page was
+> measured by razves itself. There are no coordinates to copy into a build file — until there are,
+> it is built from source. Start at
+> [`docs/research/research-architecture.md`](docs/research/research-architecture.md), which records
+> the eighteen places where a measurement corrected the plan.
 
-## What the research already found
+## Build it
+
+```bash
+./gradlew :cli:linkReleaseExecutableLinuxX64   # or :cli:linkReleaseExecutableMacosArm64 on a mac
+```
+
+Apple targets need a mac; everything else builds wherever a Kotlin/Native toolchain does.
+
+## What the measurements found
 
 Measured by razves on six real Kotlin/Native binaries on 2026-09-11, all Kotlin 2.4.10 — details and
 verification addresses in the research document:

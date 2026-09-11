@@ -32,9 +32,9 @@ Then, in order:
 
 ## Where things build
 
-Per the global instructions: Gradle and tests run on the WSL box through `~/.claude/bin/wsl-run`.
-Only `macosArm64`, `xcodebuild` and anything prefixed `LOCAL=1` stay on the mac. A Mach-O fixture
-is therefore a local build, and the ELF side is not.
+Everything but the Apple targets builds wherever a Kotlin/Native toolchain does. `macosArm64` -
+and therefore any test that needs a Mach-O fixture linked on the spot - needs a mac, because
+Apple targets do not cross-compile.
 
 ## Checks
 

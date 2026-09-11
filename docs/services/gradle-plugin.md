@@ -46,11 +46,10 @@ What it deliberately does **not** do: any attribution of its own. Everything int
 
 | File | What is there |
 |---|---|
-| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` | task registration and wiring to the link tasks |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` | task registration, wiring to the link tasks, and the klib set they were linked against |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/BinarySizeExtension.kt` | the DSL and its units |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeReportTask.kt` | inputs, outputs, cacheability |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeBudgetCheckTask.kt` | the comparison and the failure message |
-| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/Klibs.kt` | resolving the compilation's klib set |
 | `gradle-plugin/src/test/kotlin/io/github/youndie/razves/gradle/` | TestKit builds |
 
 ## 3. How it is built
@@ -101,7 +100,7 @@ Published to the Gradle Plugin Portal and Maven Central. Version line and publis
 ## 6. Local setup
 
 ```bash
-~/.claude/bin/wsl-run ./gradlew :gradle-plugin:test
+./gradlew :gradle-plugin:test
 ```
 
 ## 7. Configuration

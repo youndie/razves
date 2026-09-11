@@ -31,8 +31,8 @@ razves report <binary> [--klibs <dir>]... [--format text|json] [--rows N]
 
 `--klibs` is repeatable rather than a separated list: a real link pulls klibs from the dependency
 cache *and* from the Kotlin/Native distribution, and a path separator inside one option is a shape
-people get wrong on Windows. `razves diff` arrives with
-[feature-size-diff](../features/feature-size-diff.md).
+people get wrong on Windows. There is no `razves diff` yet: the diff exists as a Gradle task only, and giving the CLI the same
+subtraction is [B-27](../backlog/B-27-cli-diff.md).
 
 The `json` format is the core's report model — the same file the plugin writes as a baseline, so a
 CLI report can be diffed against a build's baseline and the other way round.
@@ -76,10 +76,10 @@ is the point, given that the tool exists to serve people who ship a single binar
 ## 6. Local setup
 
 ```bash
-~/.claude/bin/wsl-run ./gradlew :cli:linkReleaseExecutableLinuxX64
+./gradlew :cli:linkReleaseExecutableLinuxX64
 ```
 
-`macosArm64` is built locally with `LOCAL=1`; it does not cross-compile from the Linux box.
+`macosArm64` has to be built on a mac: Apple targets do not cross-compile.
 
 ## 7. Configuration
 

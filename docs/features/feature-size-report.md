@@ -2,7 +2,7 @@
 id: feature-size-report
 title: Size report — what is in this binary and who put it there
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - core
@@ -14,11 +14,6 @@ tags: [attribution, elf, macho, klib]
 ---
 
 # Size report — what is in this binary and who put it there
-
-> `status: draft` — nothing below is implemented. Every number quoted as an example comes from the
-> measurements in [research-architecture](../research/research-architecture.md) §1.2–§1.5, taken
-> with Xcode's `llvm-nm`/`llvm-objdump` on binaries `shildik` had already built. The scenarios are
-> **target** behaviour until the code exists.
 
 ## 1. Overview
 
@@ -89,7 +84,7 @@ dynamic-linking metadata.
 | core | `core/src/commonMain/kotlin/io/github/youndie/razves/report/` — the report model and reconciliation |
 | gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeReportTask.kt` |
 | cli | `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/Main.kt` |
-| fixtures | `core/src/commonTest/resources/` — the synthetic binaries of known composition |
+| fixtures | `core/src/commonTest/kotlin/io/github/youndie/razves/fixture/` — the synthetic binaries of known composition, built in memory |
 
 ## 5. Scenarios (BDD / test cases)
 
@@ -163,13 +158,14 @@ dynamic-linking metadata.
 * **Automated:** `MachOReaderTest.twoSectionsNamedConstStayTwoSections`, and the real-binary check in
   `RealBinaryTest.theIdentitiesHoldOnARealMachOBinary`
 
-### Scenario: Rust legacy mangling is not attributed to the Kotlin/Native runtime — *target*
+### Scenario: Rust legacy mangling is not attributed to the Kotlin/Native runtime
 * **Given:** a binary linking `sqlx4k`, whose Rust core is compiled with the legacy `_ZN…` scheme.
 * **When:** razves classifies its symbols.
 * **Then:** symbols ending in `17h<16 hex digits>E` land in the Rust bucket.
 * **And:** the C++ bucket contains the Kotlin/Native runtime and no `tokio`, `sqlx_postgres` or
   `core::ptr` symbols — the misattribution [research §1.3](../research/research-architecture.md)
   measured at about 964 KB.
+* **Automated:** `ManglingTest.rustLegacyManglingIsRustAndNotTheKotlinRuntime`
 
 ### Scenario: a stripped binary is recognised as stripped
 * **Given:** a binary with no `.symtab`.
