@@ -9,7 +9,12 @@ plugins {
 // What only the build knows: which binary was linked, and which klibs took part. Everything else is
 // `core`, which has no Gradle API on its classpath and is testable without a daemon.
 dependencies {
-    implementation(project(":core"))
+    // `api`, not `implementation`: `BinarySizeExtension.measure` is a `Property<Measure>` and `Measure`
+    // lives in `core`, so a build that compiles against this plugin - a convention plugin applying
+    // razves, which is the whole of B-17 - cannot name the value it is setting unless `core` is on its
+    // compile classpath. proba said so of the first published version: a consumer compiling against
+    // this target never receives `core`, which the run time does receive.
+    api(project(":core"))
     compileOnly(libs.kotlin.gradle.plugin)
     testImplementation(gradleTestKit())
 }
