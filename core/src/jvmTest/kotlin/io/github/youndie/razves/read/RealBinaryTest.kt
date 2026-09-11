@@ -4,6 +4,7 @@ import io.github.youndie.razves.attribute.Mangling
 import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.klib.KlibReader
 import io.github.youndie.razves.klib.PackageToModule
+import io.github.youndie.razves.profile.Profiling
 import io.github.youndie.razves.report.Attribution
 import io.github.youndie.razves.report.ModuleRowKind
 import io.github.youndie.razves.report.ReportDocument
@@ -214,6 +215,51 @@ class RealBinaryTest {
         // binary, and an address walk of a section that well covered cannot be mostly misses. If this
         // ever fires, the lookup is wrong rather than the binary being unusual.
         assertTrue(share < 200, "over a fifth of .text addresses have no owner, which is a defect here")
+    }
+
+    @Test
+    fun aProfileOfARealBinaryNamesThePackagesItsSizeReportNames() {
+        // The cross-check the whole pairing exists for. The same binary, the same grammar, two
+        // questions - where the bytes are and where the time is - and the names must be the same
+        // names. If they are not, one of the two is inventing them.
+        //
+        // The stacks are synthesised from the binary own symbols rather than sampled, because a test
+        // cannot run the program: what is under test here is the naming, not the sampler, which has
+        // its own acceptance in SamplerSurvivalTest.
+        val file = subject() ?: return skipped("no subject binary found")
+        val image = ElfReader.read(file.readBytes(), file.name)
+        val report = Attribution.report(image)
+
+        val sampled =
+            image.symbols
+                .filter { it.size > 0 && Mangling.originOf(it.name) == Origin.KOTLIN }
+                .sortedBy { it.address }
+                .filterIndexed { i, _ -> i % 97 == 0 }
+        assertTrue(sampled.size > 50, "too few Kotlin symbols to be a fair sample: ${sampled.size}")
+
+        val profile =
+            Profiling.of(image, sampled.map { longArrayOf(it.address + it.size / 2) })
+
+        val named = profile.packages.filter { it.self > 0 && !it.name.startsWith("<") }.map { it.name }
+        val fromTheSizeReport = report.packages.map { it.name }.toSet()
+        val strangers = named.filterNot { it in fromTheSizeReport }
+
+        println(
+            "${file.name}: ${sampled.size} synthesised samples produced ${named.size} package rows, " +
+                "${strangers.size} of which the size report does not have",
+        )
+
+        assertTrue(named.isNotEmpty(), "a run that produced no package rows would prove nothing")
+        assertEquals(
+            emptyList(),
+            strangers,
+            "these package names exist in the profile and not in the size report of the same binary",
+        )
+        assertEquals(
+            sampled.size.toLong(),
+            profile.origins.sumOf { it.self },
+            "every synthesised sample lands in exactly one origin row",
+        )
     }
 
     @Test

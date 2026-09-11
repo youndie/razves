@@ -38,12 +38,11 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (8)
+## Open (7)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-29](docs/backlog/B-29-sampling-cost-stand.md) `[ ]` | A stand that can resolve what sampling costs | P1 | M | - |
-| [B-32](docs/backlog/B-32-aggregate-samples.md) `[ ]` | Aggregate samples by origin, package and module | P1 | M | B-30, B-31 |
 | [B-33](docs/backlog/B-33-pprof-writer.md) `[ ]` | Write pprof, so existing viewers work | P1 | M | B-32 |
 | [B-34](docs/backlog/B-34-gc-statistics.md) `[ ]` | Garbage collection, by polling, saying what it missed | P2 | S | - |
 | [B-35](docs/backlog/B-35-mcp-interface.md) `[ ]` | MCP as the second interface, in tracy's shape | P2 | M | B-32 |
@@ -51,7 +50,7 @@ layer, so re-prioritising an item must never move its file.
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (28)
+## Closed (29)
 
 **Read the file, and prove you read all of it**
 
@@ -95,6 +94,7 @@ layer, so re-prioritising an item must never move its file.
 
 - [B-30](docs/backlog/B-30-in-process-sampler.md) `[x]` - The in-process sampler, in C, behind cinterop
 - [B-31](docs/backlog/B-31-symbol-at-address.md) `[x]` - Address to symbol, in core
+- [B-32](docs/backlog/B-32-aggregate-samples.md) `[x]` - Aggregate samples by origin, package and module
 
 <!-- END INDEX -->
 
