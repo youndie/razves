@@ -15,7 +15,13 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.serialization.json)
+            // `api`, because the serialisation types are in this module's public surface whether or not
+            // that was intended: every `@Serializable` class hands out a `KSerializer` through its
+            // generated `serializer()`, and `ReportDocument.JSON` is a `Json` on purpose - a consumer
+            // reading a report wants the configuration that wrote it. Declared as `implementation`,
+            // all of that compiles, tests and publishes green, and fails in someone else's build with
+            // "Cannot access class". proba said so of the second published version.
+            api(libs.kotlinx.serialization.json)
         }
         // `kotlin-test` is not declared here: `io.github.youndie.sborka.kmp` puts it on commonTest,
         // version-managed by the Kotlin plugin, and a second constraint on the same module makes the
