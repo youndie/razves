@@ -6,7 +6,9 @@ import io.github.youndie.razves.read.BinaryImage
 import io.github.youndie.razves.read.ElfReader
 import io.github.youndie.razves.read.MachOReader
 import io.github.youndie.razves.report.Attribution
+import io.github.youndie.razves.report.DiffDocument
 import io.github.youndie.razves.report.ReportDocument
+import io.github.youndie.razves.report.TextDiff
 import io.github.youndie.razves.report.TextReport
 
 /** How the report is printed. `json` is the same document the Gradle plugin commits as a baseline. */
@@ -40,6 +42,57 @@ public object Analyse {
             OutputFormat.TEXT -> TextReport.render(document, rows)
             OutputFormat.JSON -> document.toJson()
         }
+    }
+
+    /**
+     * What moved between two reports.
+     *
+     * **Two reports, not two binaries.** A report is the format the plugin already writes as a
+     * baseline, so a job can compare a local build against a committed one without a Gradle daemon -
+     * and reading binaries here instead would quietly re-measure them, which is how a diff ends up
+     * subtracting an address-derived size from a recorded one. [DiffDocument.of] refuses that pair;
+     * this surfaces the refusal rather than preventing it.
+     */
+    public fun diff(
+        beforePath: String,
+        afterPath: String,
+        rows: Int,
+    ): String = TextDiff.render(DiffDocument.of(document(beforePath), document(afterPath)), rows)
+
+    /**
+     * One report off the disk, with both ways of not being one named.
+     *
+     * A stack trace from a serialisation library names a field and a character offset, which tells a
+     * reader nothing about which of the two files they passed was wrong. And [ReportDocument.formatVersion]
+     * existed from the first commit for exactly this moment and had never been read by anything: a
+     * baseline written by a later release parses field by field until it does not, and the message
+     * then describes a missing field rather than a version.
+     */
+    private fun document(path: String): ReportDocument {
+        require(Files.exists(path)) { "$path does not exist" }
+        val document =
+            runCatching { ReportDocument.parse(Files.read(path).decodeToString()) }
+                .getOrElse {
+                    // The first line only. A serialisation library explains itself to whoever wrote
+                    // the `Json` builder - "use ignoreUnknownKeys" is advice for razves, not for the
+                    // person holding the file, and it buries the one line that names theirs.
+                    val reason =
+                        it.message
+                            .orEmpty()
+                            .lineSequence()
+                            .firstOrNull { line -> line.isNotBlank() }
+                    error(
+                        "$path is not a razves report: $reason " +
+                            "One is written by `razves report <binary> --format json`, and by the " +
+                            "Gradle plugin as a baseline.",
+                    )
+                }
+        check(document.formatVersion == ReportDocument.FORMAT_VERSION) {
+            "$path is format version ${document.formatVersion} and this razves reads " +
+                "${ReportDocument.FORMAT_VERSION}: it was written by a different release, and the " +
+                "rows are not known to mean the same thing."
+        }
+        return document
     }
 
     private fun read(

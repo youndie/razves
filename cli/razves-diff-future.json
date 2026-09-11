@@ -1,0 +1,83 @@
+{
+  "formatVersion": 2,
+  "binary": "razves-diff-subject.kexe",
+  "format": "ELF64",
+  "sizeAlgorithm": "RECORDED",
+  "targets": [
+    "android_x64",
+    "linux_x64"
+  ],
+  "hasSymbolTable": true,
+  "moduleAttribution": false,
+  "packageDepth": 3,
+  "fileSize": 568,
+  "headerBytes": 384,
+  "allocatedBytes": 64,
+  "nobitsBytes": 0,
+  "metadataBytes": 106,
+  "paddingBytes": 14,
+  "unparsedBytes": 0,
+  "attributedBytes": 64,
+  "unattributedBytes": 0,
+  "sections": [
+    {
+      "name": ".text",
+      "kind": "ALLOCATED",
+      "size": 64,
+      "attributed": 64
+    },
+    {
+      "name": ".symtab",
+      "kind": "METADATA",
+      "size": 48,
+      "attributed": 0
+    },
+    {
+      "name": ".shstrtab",
+      "kind": "METADATA",
+      "size": 33,
+      "attributed": 0
+    },
+    {
+      "name": ".strtab",
+      "kind": "METADATA",
+      "size": 25,
+      "attributed": 0
+    }
+  ],
+  "origins": [
+    {
+      "name": "KOTLIN",
+      "bytes": 64,
+      "symbols": 1
+    },
+    {
+      "name": "KOTLIN_RUNTIME",
+      "bytes": 0,
+      "symbols": 0
+    },
+    {
+      "name": "RUST",
+      "bytes": 0,
+      "symbols": 0
+    },
+    {
+      "name": "CXX",
+      "bytes": 0,
+      "symbols": 0
+    },
+    {
+      "name": "C",
+      "bytes": 0,
+      "symbols": 0
+    }
+  ],
+  "packages": [
+    {
+      "name": "sample.app",
+      "bytes": 64,
+      "symbols": 1
+    }
+  ],
+  "modules": []
+}

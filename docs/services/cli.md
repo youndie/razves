@@ -31,11 +31,25 @@ razves report <binary> [--klibs <dir>]... [--format text|json] [--rows N]
 
 `--klibs` is repeatable rather than a separated list: a real link pulls klibs from the dependency
 cache *and* from the Kotlin/Native distribution, and a path separator inside one option is a shape
-people get wrong on Windows. There is no `razves diff` yet: the diff exists as a Gradle task only, and giving the CLI the same
-subtraction is [B-27](../backlog/B-27-cli-diff.md).
+people get wrong on Windows.
+
+```
+razves diff <before.json> <after.json> [--rows N]
+```
+
+**Two reports, not two binaries.** A report is the format the plugin already writes as a baseline, so
+a job can compare a local build against a committed one without a Gradle daemon — and reading
+binaries here would quietly re-measure them, which is how a diff ends up subtracting an
+address-derived size from a recorded one. `DiffDocument.of` refuses that pair and the CLI prints the
+refusal.
 
 The `json` format is the core's report model — the same file the plugin writes as a baseline, so a
 CLI report can be diffed against a build's baseline and the other way round.
+
+**Every refusal exits 1 and every answer exits 0**, which was not true until B-27 measured it: clikt's
+own `main` prints its message and returns normally, so a missing file, a file that is not a report,
+two reports measured differently and even clikt's "missing argument" all left the process at status
+0. A tool that cannot say it refused is a tool a script reads as having agreed.
 
 ## 2a. Code anchors
 

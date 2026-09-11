@@ -37,17 +37,16 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (5)
+## Open (4)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-25 |
-| [B-27](docs/backlog/B-27-cli-diff.md) `[ ]` | razves diff in the CLI, against a report the plugin wrote | P2 | S | B-13 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 | [B-28](docs/backlog/B-28-apply-without-kgp.md) `[ ]` | Applying razves without the Kotlin Gradle Plugin should do nothing, not crash | P3 | S | - |
 
-## Closed (23)
+## Closed (24)
 
 **Read the file, and prove you read all of it**
 
@@ -78,6 +77,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-14](docs/backlog/B-14-budget-gate.md) `[x]` - The budget gate, and a failure message that names the rows that moved
 - [B-20](docs/backlog/B-20-decide-the-budget-unit.md) `[x]` - Decide what the budget is measured on
 - [B-24](docs/backlog/B-24-consumable-by-coordinate.md) `[x]` - razves resolves by id, out of a repository
+- [B-27](docs/backlog/B-27-cli-diff.md) `[x]` - razves diff in the CLI, against a report the plugin wrote
 
 **Point it at real binaries and publish what it says**
 

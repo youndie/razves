@@ -7,6 +7,7 @@ owner: unassigned
 involved_services:
   - core
   - gradle-plugin
+  - cli
 client_entries: []
 api: []
 tags: [diff, baseline, flags]
@@ -65,9 +66,7 @@ subjects, so the flag's reach is bounded by that share.
 | core | `core/src/commonMain/kotlin/io/github/youndie/razves/report/ReportDocument.kt` — the serialised format a baseline is |
 | gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeBaselineWriteTask.kt` — writes the baseline |
 | gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeDiffTask.kt` — renders the diff against it |
-
-The diff is a Gradle surface only. The CLI prints reports and cannot yet subtract two of them
-([B-27](../backlog/B-27-cli-diff.md)), which is why `cli` is not among the services above.
+| cli | `cli/src/commonMain/kotlin/io/github/youndie/razves/cli/Analyse.kt` — `diff`, and the two ways a file is not a report |
 
 ## 5. Scenarios (BDD / test cases)
 
