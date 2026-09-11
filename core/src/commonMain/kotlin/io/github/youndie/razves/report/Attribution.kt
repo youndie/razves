@@ -2,6 +2,7 @@ package io.github.youndie.razves.report
 
 import io.github.youndie.razves.attribute.Mangling
 import io.github.youndie.razves.attribute.Origin
+import io.github.youndie.razves.attribute.Packages
 import io.github.youndie.razves.read.BinaryImage
 import io.github.youndie.razves.read.SectionKind
 import io.github.youndie.razves.read.Symbol
@@ -32,12 +33,13 @@ public object Attribution {
      * the tool, after the file-size one and the per-section one, and it exists for the same reason:
      * a split that does not add up is a split that is quietly losing bytes somewhere.
      */
-    public fun report(image: BinaryImage): SizeReport {
+    public fun report(
+        image: BinaryImage,
+        packageDepth: Int = DEFAULT_PACKAGE_DEPTH,
+    ): SizeReport {
         val reconciliation = of(image)
-        val byOrigin =
-            reconciliation.sections
-                .flatMap { it.owners }
-                .groupBy { Mangling.originOf(it.symbol.name) }
+        val owners = reconciliation.sections.flatMap { it.owners }
+        val byOrigin = owners.groupBy { Mangling.originOf(it.symbol.name) }
         // Origin.entries rather than the map's keys, so the enum's own order decides the report's -
         // Kotlin first, then the runtime beneath it, then what was linked in - and so a bucket that
         // happens to be empty in this binary is still a row saying zero rather than a missing line.
@@ -46,8 +48,22 @@ public object Attribution {
                 val extents = byOrigin[origin].orEmpty()
                 OriginRow(origin, extents.sumOf { it.bytes }, extents.size)
             }
-        return SizeReport(reconciliation, rows)
+        val packages =
+            owners
+                .mapNotNull { extent -> Packages.of(extent.symbol.name, packageDepth)?.let { it to extent } }
+                .groupBy({ it.first }, { it.second })
+                .map { (name, extents) -> PackageRow(name, extents.sumOf { it.bytes }, extents.size) }
+                .sortedWith(compareByDescending<PackageRow> { it.bytes }.thenBy { it.name })
+        return SizeReport(reconciliation, rows, packages, packageDepth)
     }
+
+    /**
+     * Three segments, because that is what makes the table readable rather than because it is round.
+     * On the release subject, depth 1 collapses everything into four rows and full depth produces
+     * hundreds; three gives `ru.workinprogress.shildik`, `io.ktor.server`, `io.ktor.client`,
+     * `kotlin.text.regex` and the rest - names a reader recognises and can act on.
+     */
+    public const val DEFAULT_PACKAGE_DEPTH: Int = 3
 
     public fun of(image: BinaryImage): Reconciliation {
         val bySection = image.symbols.groupBy { it.sectionIndex }

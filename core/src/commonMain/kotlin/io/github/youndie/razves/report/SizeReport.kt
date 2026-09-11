@@ -19,6 +19,10 @@ import io.github.youndie.razves.read.SectionKind
 public class SizeReport internal constructor(
     public val reconciliation: Reconciliation,
     public val origins: List<OriginRow>,
+    /** The Kotlin bucket, split by package. Empty when the binary carries no Kotlin at all. */
+    public val packages: List<PackageRow> = emptyList(),
+    /** How many segments of a package name the rows were truncated to. */
+    public val packageDepth: Int = Int.MAX_VALUE,
 ) {
     public val image: io.github.youndie.razves.read.BinaryImage get() = reconciliation.image
 
@@ -29,6 +33,15 @@ public class SizeReport internal constructor(
         }
         require(origins.map { it.origin }.distinct().size == origins.size) {
             "an origin appears twice in the report for ${image.name}"
+        }
+        // The fourth identity. A package split that does not add up to the Kotlin bucket is losing
+        // bytes in the one layer a Kotlin developer will actually read, and losing them silently.
+        require(packages.isEmpty() || packages.sumOf { it.bytes } == bytesOf(Origin.KOTLIN)) {
+            "the package split of ${image.name} does not add up to its Kotlin bytes: " +
+                "${packages.sumOf { it.bytes }} != ${bytesOf(Origin.KOTLIN)}"
+        }
+        require(packages.map { it.name }.distinct().size == packages.size) {
+            "a package appears twice in the report for ${image.name}"
         }
     }
 
@@ -66,6 +79,19 @@ public class SizeReport internal constructor(
     public fun shareOf(origin: Origin): Double =
         if (reconciliation.attributedBytes == 0L) 0.0 else bytesOf(origin).toDouble() / reconciliation.attributedBytes
 }
+
+/**
+ * One Kotlin package and what it costs.
+ *
+ * [name] is truncated to the report's depth, so several packages can share a row - which is the
+ * point of the depth: at full depth a real binary produces hundreds of rows and at depth 3 it
+ * produces a table a person reads.
+ */
+public data class PackageRow(
+    val name: String,
+    val bytes: Long,
+    val symbols: Int,
+)
 
 /** One origin and what it costs. [symbols] is there so a huge row of tiny symbols reads differently. */
 public data class OriginRow(

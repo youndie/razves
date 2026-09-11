@@ -43,7 +43,6 @@ layer, so re-prioritising an item must never move its file.
 |---|---|---|---|---|
 | [B-04](docs/backlog/B-04-synthetic-fixtures.md) `[ ]` | Synthetic binaries whose attribution is known by construction | P0 | M | B-05, B-07 |
 | [B-14](docs/backlog/B-14-budget-gate.md) `[ ]` | The budget gate, and a failure message that names the rows that moved | P0 | M | B-13 |
-| [B-07](docs/backlog/B-07-kotlin-packages.md) `[ ]` | Aggregate Kotlin symbols by package | P1 | S | - |
 | [B-08](docs/backlog/B-08-klib-package-to-module.md) `[ ]` | Map package to module from klib manifests, and report ambiguity as ambiguity | P1 | M | - |
 | [B-10](docs/backlog/B-10-report-renderer.md) `[ ]` | Render the report as text and as JSON, coverage next to every conclusion | P1 | M | - |
 | [B-11](docs/backlog/B-11-cli.md) `[ ]` | The CLI: report and diff for any binary, with optional klibs | P1 | M | - |
@@ -55,10 +54,11 @@ layer, so re-prioritising an item must never move its file.
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-14 |
 | [B-18](docs/backlog/B-18-reconcile-the-46-mib-claim.md) `[?]` | Reconcile the 46 MiB figure, or retire it | P2 | XS | - |
 | [B-20](docs/backlog/B-20-decide-the-budget-unit.md) `[?]` | Decide what the budget is measured on | P2 | XS | B-16 |
+| [B-22](docs/backlog/B-22-fold-undeclared-packages.md) `[ ]` | Fold a package name no klib declares up to the longest one that is declared | P2 | S | B-08 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[ ]` | Attribute NOBITS sections so uninitialised state has an owner | P3 | S | B-20 |
 
-## Closed (5)
+## Closed (6)
 
 **Read the file, and prove you read all of it**
 
@@ -70,6 +70,7 @@ layer, so re-prioritising an item must never move its file.
 
 - [B-05](docs/backlog/B-05-mangling-grammar.md) `[x]` - The mangling grammar, with Rust tested before C++
 - [B-06](docs/backlog/B-06-origin-buckets.md) `[x]` - Origin buckets and per-section coverage in the report model
+- [B-07](docs/backlog/B-07-kotlin-packages.md) `[x]` - Aggregate Kotlin symbols by package
 
 <!-- END INDEX -->
 

@@ -170,6 +170,24 @@ dynamic-linking metadata.
 * **Then:** it fails, naming the binary as stripped and pointing at the link output.
 * **And:** it does **not** emit a report showing 100% unattributed.
 
+### Scenario: the Kotlin bytes are split by package
+* **Given:** a binary carrying Kotlin symbols in several packages.
+* **When:** razves reports on it.
+* **Then:** the package rows sum to the Kotlin origin bucket exactly, and a report whose rows do not
+  cannot be constructed.
+* **And:** no row name carries a `$` or a capitalised segment — those are classes, not packages.
+* **And:** the default depth of 3 produces a readable table; measured on the release subject,
+  `ru.workinprogress.shildik` 991,047, `io.ktor.server` 443,998, `io.ktor.client` 358,921.
+* **Automated:** `PackagesTest`, `RealBinaryTest.theKotlinBytesSplitByPackage`
+
+### Scenario: a derived package is one that actually exists
+* **Given:** the klibs that were linked, each carrying its own `package_<fqn>` list.
+* **When:** every package razves derived is held against those lists.
+* **Then:** at most 2% of the checkable Kotlin bytes name a package no klib declares. Measured 0.4%
+  — 23 rows of 210, all of them declarations whose own name is lowercase.
+* **Automated:** `RealBinaryTest.everyPackageAtFullDepthIsOneAKlibDeclares` — skips, by name, without
+  a klib directory.
+
 ### Scenario: an ambiguous package is not silently assigned — *target*
 * **Given:** a binary containing `org.koin.core` symbols and a klib set in which both
   `io.insert-koin:koin-core` and `io.insert-koin:koin-ktor` declare that package.
@@ -224,6 +242,11 @@ dynamic-linking metadata.
 * **The symbol table razves reads is 19–21% of the binary it is describing.** Measured on four
   subjects. It is simultaneously the tool's input and the largest single saving available, and
   removing it removes the tool's ability to see anything.
+* **A lowercase declaration name reads as a package segment.** cinterop keeps a C struct's own name,
+  so `platform.posix.addrinfo` and `dev.whyoleg…internal.cinterop.ossl_param_st` appear as package
+  rows. Measured at 0.4% of the checkable Kotlin bytes, and not fixable by any grammar over names —
+  the klib package list is the authority, and [B-22](../backlog/B-22-fold-undeclared-packages.md)
+  uses it.
 * **`.rodata` coverage is 40.6%.** Any conclusion about data size rests on less than half of the
   section, which is why coverage is printed per section.
 * **NOBITS sections have no owner at all.** `.bss` and `.tbss` are counted in the virtual size and

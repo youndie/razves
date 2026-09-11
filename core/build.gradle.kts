@@ -33,7 +33,7 @@ kotlin {
 //
 // Absent, the tests skip themselves by name rather than passing quietly.
 tasks.withType<Test>().configureEach {
-    for (key in listOf("RAZVES_ELF_SUBJECT", "RAZVES_MACHO_SUBJECT")) {
+    for (key in listOf("RAZVES_ELF_SUBJECT", "RAZVES_MACHO_SUBJECT", "RAZVES_KLIB_DIR")) {
         val value = providers.gradleProperty(key).orNull ?: providers.environmentVariable(key).orNull
         if (value != null) systemProperty(key, value)
     }

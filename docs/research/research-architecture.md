@@ -117,6 +117,11 @@ unchanged to a tenth of a percent, and the runtime now has a number of its own �
 | `.dynsym`+`.dynstr`+`.gnu.hash`+`.gnu.version` = 668,452 B, also 0% attributable by symbol | same run |
 | 22 allocated sections of that binary are claimed by no symbol at all, and six of them are 2,189,115 B between them: `.eh_frame` 1,287,092, `.dynstr` 289,336, `.dynsym` 269,136, `.eh_frame_hdr` 213,092, `.gnu.hash` 87,552, `.gcc_except_table` 42,907 — exception unwinding and dynamic linking, 10.7% of the file, belonging to no package | razves' own report, once B-06 existed |
 | Its five sections that *are* owned carry very different coverage: `.text` 97.6%, `.data.rel.ro` 94.7%, `.data` 97.2%, **`.rodata` 40.6%**, `.init_array` 20.0% | same run |
+| Kotlin/Native emits **two shapes of symbol for the same kind of declaration**: a public top-level function is `kfun:<package>#name(signature)`, and an `internal` or `private` one is `kfun:<package>.name#internal` with no signature at all — the member name inside the container | `llvm-nm` over that binary, reading `kfun:dev.whyoleg.cryptography.providers.base#checkBounds(…)` against `kfun:dev.whyoleg.cryptography.bigint.removeLeadingZeros#internal` |
+| Every klib carries its own package list on disk as `default/linkdata/package_<fqn>`, in a zip in the dependency cache and as an unpacked directory in the Kotlin/Native distribution | `unzip -l` of `ktor-http-linuxX64Main-3.5.1.klib` |
+| Held against those lists, razves' derived packages are right for **187 of 210** rows under a declared root; the 23 that are not are worth 25,142 B, **0.4%** of those rows | razves' own oracle, once B-07 existed |
+| Every one of the 23 is a declaration whose own name is lowercase: cinterop struct classes keep their C names (`sockaddr_un`, `addrinfo`, `in6_addr`, `ossl_param_st`, `mutex_node`, `selection_set`), and so do lowercase objects (`unicodeLT`) and top-level properties (`engines`) | same run |
+| The Kotlin bytes of that binary at package depth 3: `ru.workinprogress.shildik` 991,047, `io.ktor.server` 443,998, `io.ktor.client` 358,921, `dev.whyoleg.cryptography` 323,553, `io.ktor.http` 264,911, `kotlin.text.regex` 251,770 | razves' own report |
 | Every gap between adjacent file regions — the ELF header, the program header table, each section that occupies file bytes, the section header table — is **strictly smaller than the alignment of the region that follows it**, in all four subjects, over 34 to 43 regions each | scripted layout sweep, 2026-09-11 |
 
 **Consequence 1 — the headline of the first article is not the one the brief predicted.** The
@@ -289,6 +294,14 @@ the only thing that knows a project module's klib is `build/classes/kotlin/…` 
 entry. But a CLI handed a directory of klibs can do module attribution too. That widens the CLI
 from "package-level only" to "package-level, or module-level if you point it at the klibs", which
 is a materially better product for anyone analysing a binary they did not build.
+
+**Consequence 2a, found while implementing M1 (B-07).** The klib package list is not only the
+module map — it is the **authority on which packages exist**, and razves needs that authority for a
+reason the brief did not anticipate. A declaration whose own name is lowercase is indistinguishable
+from a package segment by any grammar over names, and cinterop generates plenty of them because a C
+struct keeps its C name. Measured, that misfiles 0.4% of the Kotlin bytes. No grammar fixes it; the
+package list does, by folding an underived name up to the longest declared prefix. See
+[B-22](../../backlog.md).
 
 **Consequence 2.** Package → module is *nearly* a function and must not be modelled as one. 1.6%
 ambiguity is small enough to ignore in a chart and large enough to be wrong about a specific

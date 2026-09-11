@@ -223,6 +223,112 @@ class RealBinaryTest {
         assertEquals(87_552L, unowned[".gnu.hash"], ".gnu.hash")
     }
 
+    @Test
+    fun theKotlinBytesSplitByPackage() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val r = Attribution.report(ElfReader.read(file.readBytes(), file.name))
+
+        println("Kotlin packages of ${file.name} at depth ${r.packageDepth}:")
+        r.packages.take(20).forEach {
+            println("  ${it.name.padEnd(36)}${it.bytes.toString().padStart(9)}  ${it.symbols} symbols")
+        }
+        println("  ... ${r.packages.size} rows in total")
+
+        assertEquals(
+            r.bytesOf(Origin.KOTLIN),
+            r.packages.sumOf { it.bytes },
+            "the package rows are the Kotlin bucket, split - not a sample of it",
+        )
+        assertTrue(r.packages.isNotEmpty())
+        assertTrue(
+            r.packages.none { it.name.contains('$') },
+            "a synthetic segment is a class, and no package row may carry one",
+        )
+        assertTrue(
+            r.packages.none { row -> row.name.split('.').any { it.isNotEmpty() && it[0].isUpperCase() } },
+            "a capitalised segment is a class; found ${r.packages.filter { row ->
+                row.name.split('.').any { it.isNotEmpty() && it[0].isUpperCase() }
+            }.map { it.name }}",
+        )
+    }
+
+    @Test
+    fun everyPackageAtFullDepthIsOneAKlibDeclares() {
+        // The oracle this layer needed. The packages razves derives from mangled names must be
+        // packages that actually exist, and something else already knows which those are: every klib
+        // manifest carries its own `Non-empty package FQNs` list. A grammar that invents a package -
+        // by reading a function name as one, which is exactly the mistake the two symbol forms invite
+        // - produces a name no klib has ever heard of.
+        val file = subject() ?: return skipped("no subject binary found")
+        val klibs = System.getProperty(KLIB_DIR_PROPERTY) ?: return skipped("no klib directory given")
+        // More than one root, separated by the path separator: a real link pulls klibs from the
+        // dependency cache *and* from the project's own build directory, and an oracle that sees only
+        // the first reports every one of the application's own packages as invented. That is what it
+        // did on the first run - 32 rows, all of them `ru.workinprogress.shildik.*`.
+        val declared = klibs.split(File.pathSeparatorChar).flatMap { declaredPackages(File(it)) }.toSet()
+        if (declared.isEmpty()) return skipped("no klib linkdata found under $klibs")
+
+        val r = Attribution.report(ElfReader.read(file.readBytes(), file.name), packageDepth = Int.MAX_VALUE)
+        // The application's own packages are not in any dependency's klib, so only the ones that
+        // share a root with a declared package can be held against the list.
+        val roots = declared.map { it.substringBefore('.') }.toSet()
+        val checkable = r.packages.filter { it.name.substringBefore('.') in roots }
+        val invented = checkable.filterNot { it.name in declared }
+        val inventedBytes = invented.sumOf { it.bytes }
+        val share = inventedBytes.toDouble() / checkable.sumOf { it.bytes }
+
+        println(
+            "${checkable.size} package rows are under a root some klib declares; " +
+                "${invented.size} name no declared package, worth $inventedBytes bytes " +
+                "(${(share * 1000).toInt() / 10.0}% of those rows)",
+        )
+        invented.sortedByDescending { it.bytes }.take(10).forEach {
+            println("  not a declared package: ${it.name.padEnd(60)}${it.bytes}")
+        }
+
+        // Every one of these is a declaration whose name is lowercase and therefore indistinguishable
+        // from a package segment: a cinterop struct class (`sockaddr_un`, `ossl_param_st`,
+        // `selection_set`), a lowercase object (`unicodeLT`), a top-level property (`engines`). No
+        // grammar over names alone can separate them - but the klib package list can, and B-22 folds
+        // such a row up to the longest declared prefix once B-08 has read it.
+        //
+        // Until then the bound is what it costs, and the bound is measured rather than hoped for.
+        assertTrue(
+            share < 0.02,
+            "package rows naming no declared package are worth ${(share * 1000).toInt() / 10.0}% of the " +
+                "checkable Kotlin bytes, which is more than the grammar is allowed to misfile",
+        )
+    }
+
+    private fun declaredPackages(root: File): Set<String> {
+        if (!root.isDirectory) return emptySet()
+        // A klib carries its package list as `default/linkdata/package_<fqn>/`, and it comes in two
+        // shapes: a zip in the dependency cache, and an unpacked directory in the Kotlin/Native
+        // distribution - which is where the stdlib and every `platform.*` klib live. Reading only the
+        // zips leaves `kotlin.native.ref` and `kotlinx.cinterop` looking invented when they are the
+        // most declared packages there are.
+        val out = mutableSetOf<String>()
+        root.walkTopDown().forEach { file ->
+            when {
+                file.isFile && file.name.endsWith(".klib") -> {
+                    runCatching {
+                        java.util.zip.ZipFile(file).use { zip ->
+                            zip.entries().asSequence().forEach { entry ->
+                                val marker = entry.name.substringAfterLast("/package_", "")
+                                if (marker.isNotEmpty()) out += marker.substringBefore('/')
+                            }
+                        }
+                    }
+                }
+
+                file.isDirectory && file.name.startsWith("package_") -> {
+                    out += file.name.removePrefix("package_")
+                }
+            }
+        }
+        return out
+    }
+
     private fun machOSubject(): File? {
         val configured = System.getenv(MACHO_SUBJECT_ENV) ?: System.getProperty(MACHO_SUBJECT_ENV)
         return (listOfNotNull(configured) + DEFAULT_MACHO_CANDIDATES).map { File(it) }.firstOrNull { it.isFile }
@@ -231,6 +337,7 @@ class RealBinaryTest {
     private companion object {
         const val SUBJECT_ENV = "RAZVES_ELF_SUBJECT"
         const val MACHO_SUBJECT_ENV = "RAZVES_MACHO_SUBJECT"
+        const val KLIB_DIR_PROPERTY = "RAZVES_KLIB_DIR"
 
         val DEFAULT_MACHO_CANDIDATES =
             listOf(
