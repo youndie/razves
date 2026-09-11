@@ -33,7 +33,8 @@ made it publishable and proved a project can apply it by id;
 - AC: a repository adds one property and gets `sizeBudgetCheck` in its `check`. **Shipped as one
   property and one plugin line, and the difference is the point — see below. Verified in sborka's
   stand: `sborka.binaryBudget=50MiB` produced a verdict reading `file size 1,219,712, 51,209,088
-  under a budget of 52,428,800`.**
+  under a budget of 52,428,800` on a mac, and `file size 5,346,936, 47,081,864 under a budget of
+  52,428,800` on sborka's own CI, which links the same source as ELF.**
 - AC: repositories that do not set the property are unaffected — no task registered, no cost.
   **Verified, and now true by construction: sborka declares razves `compileOnly`, so a repository
   that does not apply razves does not have it on any classpath at all.**
