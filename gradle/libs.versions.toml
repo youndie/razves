@@ -12,6 +12,7 @@ kotlinx-io = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "
 # `kfun:com.github.ajalt.clikt.core#selfAndAncestors…` - which ld.lld refuses outright on a native
 # link. razves reports the same pair as an ambiguous package before the linker ever sees it.
 clikt = { module = "com.github.ajalt.clikt:clikt-core", version.ref = "clikt" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

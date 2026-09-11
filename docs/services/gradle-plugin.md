@@ -25,7 +25,7 @@ Tasks:
 
 | Task | What it does |
 |---|---|
-| `sizeReport` | attributes the target's link output and writes the report |
+| `sizeReport<Binary>` | attributes that binary's link output and writes the report; one per executable |
 | `sizeBudgetCheck` | fails the build on a breached budget or delta; wired into `check` |
 | `sizeBaselineWrite` | rewrites the committed baseline; deliberately **not** wired into `check` |
 | `sizeDiff` | compares two reports or a report against the baseline |
@@ -54,6 +54,19 @@ What it deliberately does **not** do: any attribution of its own. Everything int
 | `gradle-plugin/src/test/kotlin/io/github/youndie/razves/gradle/` | TestKit builds |
 
 ## 3. How it is built
+
+**`KotlinNativeLink.outputFile` carries no producer.** It is a plain `Provider<File>`, so setting
+the task's input from it alone schedules the report before the link and fails with "Input file does
+not exist". The provider supplies the path; an explicit `dependsOn` supplies the order. A hard-coded
+path would supply neither correctly, which is how a report ends up describing yesterday's binary.
+
+**The Kotlin Gradle Plugin is `compileOnly`, and TestKit needs it back.** A published plugin must not
+bundle KGP — the build applying razves has its own, at its own version. But TestKit hands the plugin
+under test only its runtime classpath, and Gradle resolves a plugin class's method signatures while
+decorating it, so a `register(…, Executable)` signature makes instantiation fail with "Could not
+generate a decorated class" — a message that says nothing about a missing dependency.
+`compileOnly` is not resolvable, so `gradle-plugin/build.gradle.kts` declares a resolvable
+configuration extending it for that one purpose.
 
 **The klib set comes from the compilation, resolved lazily.** The plugin needs the artifacts on the
 native compilation's classpath, and it must ask for them as a lazily-resolved `FileCollection` — a

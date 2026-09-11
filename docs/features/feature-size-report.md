@@ -233,6 +233,18 @@ dynamic-linking metadata.
   and 87,025,540 bytes.
 * **Automated:** `KlibTest`, `InflateOracleTest.everyEntryOfEveryKlibInflatesToWhatTheJvmSays`
 
+### Scenario: the Gradle plugin attributes against the link classpath
+* **Given:** a Kotlin/Native project with a dependency, and the razves plugin applied.
+* **When:** `sizeReport<Binary>` runs.
+* **Then:** the report describes the file the link task wrote, and its module rows name the klibs
+  that link used.
+* **And:** there are no ambiguous rows — measured on a project with one dependency: `stdlib`,
+  `kotlinx-datetime`, `kotlinx-serialization-core`, and `<no klib declares subject>` for the
+  application's own package. A directory sweep of a comparable tree produced 69 ambiguous rows worth
+  3.5 MB of 5.1 MB of Kotlin.
+* **And:** a second run is `UP-TO-DATE`, and the configuration cache is reused.
+* **Automated:** `SizeReportTaskTest` — skips, by name, on a host with no linkable target.
+
 ### Scenario: klibs for the wrong target are refused, and only when they contradict
 * **Given:** a `linuxX64` binary and klibs whose manifests declare `native_targets=macos_arm64`.
 * **When:** razves is asked for module attribution.

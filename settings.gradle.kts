@@ -28,3 +28,7 @@ include(":fixture")
 // The tool as a command. A native executable per target, because razves exists for people who ship
 // a single binary.
 include(":cli")
+
+// The gate. Its one irreplaceable job is supplying the link classpath: a directory sweep picks up
+// transformed copies of a dependency and makes every package it declares look declared twice.
+include(":gradle-plugin")
