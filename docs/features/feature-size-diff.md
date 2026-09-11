@@ -2,7 +2,7 @@
 id: feature-size-diff
 title: Size diff — what moved, and which rows moved it
 type: feature
-status: draft
+status: active
 owner: unassigned
 involved_services:
   - core
@@ -15,7 +15,7 @@ tags: [diff, baseline, flags]
 
 # Size diff — what moved, and which rows moved it
 
-> `status: draft` — nothing below is implemented.
+> `status: active` — nothing below is implemented.
 
 ## 1. Overview
 
@@ -71,30 +71,48 @@ subjects, so the flag's reach is bounded by that share.
 
 ## 5. Scenarios (BDD / test cases)
 
-### Scenario: a diff names the rows that moved — *target*
+### Scenario: a diff names the rows that moved
 * **Given:** two attributed reports of the same target that differ by one added dependency.
 * **When:** razves diffs them.
-* **Then:** the output lists the changed rows sorted by absolute delta, and the sum of the row
-  deltas equals the difference in file size.
+* **Then:** the output lists the changed rows sorted by absolute delta, and the five reconciliation
+  deltas sum to the difference in file size.
+* **And:** rows that did not move are absent — a diff of a binary against itself is empty rather than
+  a page of zeroes.
+* **And:** measured on the plugin's test project after adding one function in one new package:
+  `+528` in total, of which `subject.extra +110 new`, `subject +16` and `metadata +333`.
+* **Automated:** `DiffTest`, `SizeReportTaskTest.aDiffAfterACodeChangeNamesThePackageThatMoved`
 
-### Scenario: an added package appears as a row — *target*
+### Scenario: an added package appears as a row
 * **Given:** a baseline with no `io.ktor.client` rows and a current report that has them.
 * **When:** razves diffs them.
 * **Then:** the package appears with its full size as the delta, marked as new rather than omitted.
+* **And:** "appeared" is carried rather than inferred from a zero — a row can legitimately be present
+  and empty.
+* **Automated:** `DiffTest.aPackageThatAppearedIsARowRatherThanAnOmission`
 
-### Scenario: a removed package appears as a row — *target*
+### Scenario: a removed package appears as a row
 * **Given:** the reverse of the above.
 * **Then:** the package appears with a negative delta, marked as gone.
+* **Automated:** `DiffTest.aPackageThatVanishedIsARowToo`
 
-### Scenario: comparing across size algorithms is refused — *target*
+### Scenario: comparing across size algorithms is refused
 * **Given:** a baseline produced from an ELF binary and a current report produced from a Mach-O one.
 * **When:** razves diffs them.
 * **Then:** it fails, naming both algorithms and both targets, rather than subtracting.
+* **Automated:** `DiffTest.comparingAcrossSizeAlgorithmsIsRefused`,
+  `DiffTest.comparingDifferentTargetsIsRefused`
 
-### Scenario: the baseline is not written by the check — *target*
+### Scenario: the baseline is not written by the check
 * **Given:** a project whose current binary is larger than its committed baseline.
 * **When:** the check task runs.
 * **Then:** the baseline file on disk is byte-identical to what it was before the run.
+* **And:** `sizeBaselineWrite<Binary>` is not part of `check`, which the plugin test asserts by
+  reading `check --dry-run`.
+* **And:** a diff with no baseline at all fails naming the task that writes one, and saying to commit
+  it.
+* **Automated:** `SizeReportTaskTest.theBaselineTaskIsNotPartOfCheck`,
+  `SizeReportTaskTest.aDiffWithNoBaselineNamesTheTaskThatWritesOne`,
+  `SizeReportTaskTest.aDiffAgainstAnUnchangedBaselineIsEmpty`
 
 ### Scenario: a flag comparison reports rows, not a headline — *target*
 * **Given:** the same sources linked twice, once with `-Xbinary=smallBinary=true`.

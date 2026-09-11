@@ -21,6 +21,7 @@ public class RazvesPlugin : Plugin<Project> {
         val extension = target.extensions.create("binarySize", BinarySizeExtension::class.java)
         extension.packageDepth.convention(DEFAULT_PACKAGE_DEPTH)
         extension.rows.convention(DEFAULT_ROWS)
+        extension.baselineDirectory.convention(DEFAULT_BASELINE_DIRECTORY)
 
         target.plugins.withId("org.jetbrains.kotlin.multiplatform") {
             val kotlin = target.extensions.getByType(KotlinMultiplatformExtension::class.java)
@@ -39,29 +40,61 @@ public class RazvesPlugin : Plugin<Project> {
     ) {
         val name = "sizeReport${binary.name.replaceFirstChar { it.uppercase() }}"
         val reports = project.layout.buildDirectory.dir("reports/razves")
-        project.tasks.register(name, SizeReportTask::class.java) { task ->
+        val report =
+            project.tasks.register(name, SizeReportTask::class.java) { task ->
+                task.group = "verification"
+                task.description = "What is in ${binary.name}, by origin, package and module."
+
+                // The link task, not the compile one, and its output rather than a path guessed from the
+                // layout: a hard-coded path is how a report ends up describing yesterday's binary.
+                //
+                // The ordering has to be said separately. `KotlinNativeLink.outputFile` is a plain
+                // `Provider<File>` that carries no producer, so wiring it alone gets "Input file does not
+                // exist" - the report is scheduled before the link. The provider supplies the path; the
+                // explicit dependency supplies the order.
+                task.binary.fileProvider(binary.linkTaskProvider.map { it.outputFile.get() })
+                task.dependsOn(binary.linkTaskProvider)
+
+                // THE LINK CLASSPATH. This is what the plugin is for - see SizeReportTask. Resolved
+                // lazily: touching a configuration while the build is being configured breaks the
+                // configuration cache and forces a resolution nobody asked for.
+                task.klibs.from(project.provider { binary.linkTaskProvider.get().libraries })
+
+                task.packageDepth.set(extension.packageDepth)
+                task.rows.set(extension.rows)
+                task.json.set(reports.map { it.file("${binary.name}.json") })
+                task.text.set(reports.map { it.file("${binary.name}.txt") })
+            }
+
+        val baseline =
+            extension.baselineDirectory.map { directory ->
+                project.layout.projectDirectory.file("$directory/${binary.name}.json")
+            }
+        val baselineTaskName = "sizeBaselineWrite${binary.name.replaceFirstChar { it.uppercase() }}"
+
+        // Not wired into `check`, and that is the whole of it: anything that both verifies and
+        // rewrites its own reference passes forever.
+        project.tasks.register(baselineTaskName, SizeBaselineWriteTask::class.java) { task ->
             task.group = "verification"
-            task.description = "What is in ${binary.name}, by origin, package and module."
+            task.description = "Rewrite the committed size baseline for ${binary.name}."
+            task.report.set(report.flatMap { it.json })
+            task.baseline.set(baseline)
+        }
 
-            // The link task, not the compile one, and its output rather than a path guessed from the
-            // layout: a hard-coded path is how a report ends up describing yesterday's binary.
-            //
-            // The ordering has to be said separately. `KotlinNativeLink.outputFile` is a plain
-            // `Provider<File>` that carries no producer, so wiring it alone gets "Input file does not
-            // exist" - the report is scheduled before the link. The provider supplies the path; the
-            // explicit dependency supplies the order.
-            task.binary.fileProvider(binary.linkTaskProvider.map { it.outputFile.get() })
-            task.dependsOn(binary.linkTaskProvider)
-
-            // THE LINK CLASSPATH. This is what the plugin is for - see SizeReportTask. Resolved
-            // lazily: touching a configuration while the build is being configured breaks the
-            // configuration cache and forces a resolution nobody asked for.
-            task.klibs.from(project.provider { binary.linkTaskProvider.get().libraries })
-
-            task.packageDepth.set(extension.packageDepth)
+        project.tasks.register(
+            "sizeDiff${binary.name.replaceFirstChar { it.uppercase() }}",
+            SizeDiffTask::class.java,
+        ) { task ->
+            task.group = "verification"
+            task.description = "What moved in ${binary.name} since the committed baseline."
+            task.current.set(report.flatMap { it.json })
+            // Only an existing file is wired in: an absent baseline is the normal state before anybody
+            // has written one, and the task then says which task to run rather than failing on a
+            // missing input with Gradle's own message.
+            task.baseline.fileProvider(baseline.map { it.asFile }.filter { it.isFile })
+            task.baselineTaskName.set(baselineTaskName)
             task.rows.set(extension.rows)
-            task.json.set(reports.map { it.file("${binary.name}.json") })
-            task.text.set(reports.map { it.file("${binary.name}.txt") })
+            task.text.set(reports.map { it.file("${binary.name}-diff.txt") })
         }
     }
 
@@ -72,5 +105,8 @@ public class RazvesPlugin : Plugin<Project> {
          */
         const val DEFAULT_PACKAGE_DEPTH = 3
         const val DEFAULT_ROWS = 20
+
+        /** Beside the sources rather than in `build/`: the point of a baseline is that it is committed. */
+        const val DEFAULT_BASELINE_DIRECTORY = "razves"
     }
 }

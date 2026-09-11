@@ -68,6 +68,15 @@ class SizeReportTaskTest {
         )
     }
 
+    private fun runFailing(vararg arguments: String) =
+        GradleRunner
+            .create()
+            .withProjectDir(projectDir)
+            .withPluginClasspath()
+            .withArguments(*arguments)
+            .forwardOutput()
+            .buildAndFail()
+
     private fun run(vararg arguments: String) =
         GradleRunner
             .create()
@@ -155,6 +164,90 @@ class SizeReportTaskTest {
         val document = ReportDocument.parse(File(projectDir, "build/reports/razves/debugExecutable.json").readText())
         assertEquals(1, document.packageDepth)
         assertTrue(document.packages.none { it.name.contains('.') }, "depth 1 leaves no dots")
+    }
+
+    @Test
+    fun aDiffWithNoBaselineNamesTheTaskThatWritesOne() {
+        if (HOST_TARGET == null) return skipped()
+        project()
+
+        val result = runFailing("sizeDiffDebugExecutable")
+
+        assertTrue(
+            "sizeBaselineWriteDebugExecutable" in result.output,
+            "a refusal that does not say what to do instead is only an obstacle",
+        )
+        assertTrue(
+            "commit it" in result.output,
+            "and a baseline nobody commits says something different on every machine",
+        )
+    }
+
+    @Test
+    fun theBaselineTaskIsNotPartOfCheck() {
+        if (HOST_TARGET == null) return skipped()
+        project()
+
+        val result = run("check", "--dry-run")
+
+        assertTrue(
+            ":sizeBaselineWriteDebugExecutable" !in result.output,
+            "anything that both verifies and rewrites its own reference passes forever",
+        )
+    }
+
+    @Test
+    fun aDiffAgainstAnUnchangedBaselineIsEmpty() {
+        if (HOST_TARGET == null) return skipped()
+        project()
+
+        run("sizeBaselineWriteDebugExecutable")
+        val committed = File(projectDir, "razves/debugExecutable.json")
+        assertTrue(committed.isFile, "the baseline lands beside the sources, not in build/")
+        val before = committed.readText()
+
+        val result = run("sizeDiffDebugExecutable")
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":sizeDiffDebugExecutable")?.outcome)
+        assertTrue("nothing moved" in result.output)
+        assertEquals(before, committed.readText(), "the diff never rewrites what it compares against")
+    }
+
+    @Test
+    fun aDiffAfterACodeChangeNamesThePackageThatMoved() {
+        // The point of the whole feature. A gate that reports only a total gets switched off the first
+        // week a dependency bump trips it.
+        if (HOST_TARGET == null) return skipped()
+        project()
+        run("sizeBaselineWriteDebugExecutable")
+
+        // A package the baseline has never heard of, with a body big enough to leave a mark, and
+        // reachable from `main` - Kotlin/Native eliminates what nothing calls.
+        File(projectDir, "src/commonMain/kotlin/subject/Extra.kt").writeText(
+            listOf(
+                "package subject.extra",
+                "",
+                "fun churn(seed: Int): Int {",
+                "    var acc = seed",
+                "    for (i in 1..64) acc = acc * 31 + i * i - (acc shr 3)",
+                "    return acc",
+                "}",
+            ).joinToString("\n"),
+        )
+        File(projectDir, "src/commonMain/kotlin/subject/Main.kt").let { main ->
+            main.writeText(
+                main.readText().replace(
+                    "println(LocalDate(2026, 9, 11).dayOfYear)",
+                    "println(LocalDate(2026, 9, 11).dayOfYear + subject.extra.churn(3))",
+                ),
+            )
+        }
+
+        val result = run("sizeDiffDebugExecutable")
+
+        assertTrue("BY PACKAGE" in result.output)
+        assertTrue("subject.extra" in result.output, "the new package is named, not merely counted")
+        assertTrue("new" in result.output)
     }
 
     private fun skipped() {

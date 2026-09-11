@@ -26,9 +26,9 @@ Tasks:
 | Task | What it does |
 |---|---|
 | `sizeReport<Binary>` | attributes that binary's link output and writes the report; one per executable |
-| `sizeBudgetCheck` | fails the build on a breached budget or delta; wired into `check` |
-| `sizeBaselineWrite` | rewrites the committed baseline; deliberately **not** wired into `check` |
-| `sizeDiff` | compares two reports or a report against the baseline |
+| `sizeBudgetCheck<Binary>` | fails the build on a breached budget or delta; wired into `check` |
+| `sizeBaselineWrite<Binary>` | rewrites the committed baseline in `razves/`; deliberately **not** wired into `check` |
+| `sizeDiff<Binary>` | what moved since the committed baseline |
 
 What it deliberately does **not** do: any attribution of its own. Everything interesting lives in
 [core](core.md), so it is testable without a Gradle daemon.
