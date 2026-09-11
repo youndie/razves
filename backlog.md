@@ -37,15 +37,14 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (3)
+## Open (2)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-25 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (25)
+## Closed (26)
 
 **Read the file, and prove you read all of it**
 
@@ -82,6 +81,7 @@ layer, so re-prioritising an item must never move its file.
 **Point it at real binaries and publish what it says**
 
 - [B-16](docs/backlog/B-16-run-on-the-three-subjects.md) `[x]` - Report on shildik, booblik and telek, and write the article from the numbers
+- [B-17](docs/backlog/B-17-sborka-convention.md) `[x]` - A sborka convention that applies the gate from one property
 - [B-25](docs/backlog/B-25-publish-razves.md) `[x]` - Publish razves where another repository can reach it
 
 <!-- END INDEX -->
