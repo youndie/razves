@@ -1,32 +1,75 @@
 # razves
 
+[![check](https://github.com/youndie/razves/actions/workflows/check.yaml/badge.svg)](https://github.com/youndie/razves/actions/workflows/check.yaml)
+[![snapshots](https://reposilite.kotlin.website/api/badge/latest/snapshots/io/github/youndie/razves/core?name=snapshots&color=blue&prefix=v)](https://reposilite.kotlin.website/#/snapshots/io/github/youndie/razves/core)
+[![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![native](https://img.shields.io/badge/Native-blue?logoColor=white)](https://kotlinlang.org/docs/native-overview.html)
+[![jvm](https://img.shields.io/badge/JVM-orange?logoColor=white)](https://kotlinlang.org)
+[![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
+[![licence](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
+
 **Where did the bytes in your Kotlin/Native binary go?**
 
 `bloaty` will tell you that `kfun:io.ktor.server.engine#embeddedServer(...)` is 4,112 bytes. True,
 and useless. razves aggregates the same bytes into the units a Kotlin developer can act on — the
-package, and the klib artifact the package came from — and then lets a build fail when the total
-grows.
+package, and the klib the package came from — and then lets a build fail when the total grows.
+
+> 📦 every byte of the file is charged to exactly one row, and the rows add up to the file size
+
+Reads ELF and Mach-O itself, with no subprocess: not `llvm-nm`, not `bloaty`, not `strip`. The
+Kotlin/Native toolchain ships none of them ([why](docs/research/research-architecture.md)).
+
+### 🔍 What it says
+
+razves reporting on its own CLI binary, which is a Kotlin/Native executable like any other:
 
 ```
-razves report build/bin/linuxX64/releaseExecutable/app.kexe --klibs ~/.gradle/caches/…
+razves cli.kexe
+  ELF64, android_x64 or linux_x64
+  symbol sizes: recorded by the symbol table
+  modules: attributed from the klibs supplied
+
+WHERE THE FILE WENT
+file                                             3,183,440 (3.0 MiB)  100.0%
+  container headers                                  2,976 (2.9 KiB)    0.1%
+  allocated sections                             2,340,019 (2.2 MiB)   73.5%
+  metadata (symbol tables, debug info)           840,407 (820.7 KiB)   26.4%
+  padding between regions                                  38 (38 B)    0.0%
+  in memory only (NOBITS)                            7,488 (7.3 KiB)   costs no download
+
+WHERE THE ATTRIBUTED BYTES CAME FROM
+attributed                                       1,984,242 (1.9 MiB)   84.8%
+  kotlin                                         1,583,000 (1.5 MiB)   79.8%  5907 symbols
+  kotlin_runtime                                   40,841 (39.9 KiB)    2.1%  58 symbols
+  cxx                                            124,378 (121.5 KiB)    6.3%  900 symbols
+  c                                              236,023 (230.5 KiB)   11.9%  2885 symbols
+unattributed - no symbol claims these            355,777 (347.4 KiB)   15.2%
+
+KOTLIN, BY PACKAGE
+  kotlin.text.regex                              247,286 (241.5 KiB)   12.5%  755 symbols
+  com.github.ajalt                               220,893 (215.7 KiB)   11.1%  822 symbols
+  kotlinx.serialization.json                     183,496 (179.2 KiB)    9.2%  615 symbols
+
+KOTLIN, BY MODULE
+  stdlib                                         673,882 (658.1 KiB)   34.0%  2759 symbols
+  org.jetbrains.kotl..x-serialization-json       183,496 (179.2 KiB)    9.2%  615 symbols
+  <ambiguous: clikt:..clikt:clikt-mordant>       138,441 (135.2 KiB)    7.0%  576 symbols
+
+SECTIONS, AND HOW MUCH OF EACH HAS AN OWNER
+  .text                                          1,555,576 (1.5 MiB)   98.4% has an owner
+  .strtab                                        583,186 (569.5 KiB)   not attributed
+  .eh_frame                                      183,484 (179.2 KiB)   no owner at all
+  .rodata                                          82,644 (80.7 KiB)   87.0% has an owner
 ```
 
-```kotlin
-binarySize {
-    budget = 50.MiB
-    deltaPerChange = 3.percent
-}
-```
+Three things in there are the whole design. **`unattributed` is a row, never a remainder folded into
+something else.** **Coverage sits next to every section**, because a conclusion about `.rodata` drawn
+from 87% of it is a different claim from one drawn from all of it. And **a package two klibs both
+declare reads `<ambiguous>`** rather than being assigned to whichever was found first.
 
-> **Status: snapshots, and no release.** The readers, the attribution, the CLI and the Gradle plugin
-> are implemented and covered by 165 tests; every number on this page was measured by razves itself.
-> Start at [`docs/research/research-architecture.md`](docs/research/research-architecture.md), which
-> records the eighteen places where a measurement corrected the plan.
+### 🚀 Use it
 
-## Use it
-
-Every push to `main` publishes `0.1.0.<run>` to the snapshot repository; `0.1.0.4` is the version
-this page was written against.
+As a Gradle plugin, which is the only thing that knows *which klibs took part in the link*:
 
 ```kotlin
 // settings.gradle.kts
@@ -39,61 +82,131 @@ pluginManagement {
 ```
 
 ```kotlin
-// build.gradle.kts
+// build.gradle.kts — the version is the one on the snapshots badge above
 plugins {
-    id("io.github.youndie.razves") version "0.1.0.4"
+    kotlin("multiplatform")
+    id("io.github.youndie.razves") version "0.1.0.9"
+}
+
+binarySize {
+    budget = 50.MiB
+    deltaPerChange = 3.percent
 }
 ```
 
-The report model on its own is `io.github.youndie.razves:core`, multiplatform, with no Gradle API on
-its classpath.
+| task | what it does |
+|---|---|
+| `sizeReport<Binary>` | the report above, as text and as JSON |
+| `sizeBaselineWrite<Binary>` | writes the baseline you commit — deliberately **not** part of `check` |
+| `sizeDiff<Binary>` | what moved since that baseline, row by row |
+| `sizeBudgetCheck<Binary>` | the gate, in `check` |
 
-## Or build it
+Or as a CLI, on any binary, with no build system in sight:
 
 ```bash
-./gradlew :cli:linkReleaseExecutableLinuxX64   # or :cli:linkReleaseExecutableMacosArm64 on a mac
+razves report app.kexe --klibs ~/.gradle/caches/modules-2 --klibs ~/.konan/…/klib
+razves diff before.json after.json
 ```
 
-Apple targets need a mac; everything else builds wherever a Kotlin/Native toolchain does.
+Without `--klibs` the report stops at package level and says so in its header. The report model on
+its own is `io.github.youndie.razves:core` — multiplatform, no Gradle API on its classpath.
 
-## What the measurements found
+### 🚦 The gate is the point
 
-Measured by razves on six real Kotlin/Native binaries on 2026-09-11, all Kotlin 2.4.10 — details and
-verification addresses in the research document:
+A report is interesting once. What gets installed is the build that goes red:
+
+```
+stand-service.kexe is over its size budget.
+  file size: 1,219,712
+  budget:    1,048,576
+  over by:   171,136
+
+The largest things in it:
+  kotlin              328,298
+  c                   289,686
+  cxx                 99,388
+  kotlin_runtime      77,996
+Largest Kotlin packages:
+  kotlin.collections                      145,017
+  kotlin                                   85,224
+  kotlin.native.internal                   47,918
+```
+
+**The rows are the product, not the total.** A 3% growth budget is tripped by a dependency bump as
+easily as by a mistake, and "the binary grew 7.8%" gives the reader nothing to decide with — so the
+gate gets commented out the first week it fires. Against a committed baseline the same gate prints
+what moved instead:
+
+```
+razves fixture.kexe: -4,856,712 (-90.7%)
+  5,352,944 -> 496,232 bytes
+
+BY ORIGIN
+  KOTLIN                                            -169,474   238,253 -> 68,779
+  KOTLIN_RUNTIME                                     -26,468   64,357 -> 37,889
+
+BY SECTION
+  .debug_str                                      -1,860,741   gone
+  .debug_info                                     -1,145,773   gone
+  .text                                             -273,184   455,160 -> 181,976
+```
+
+That one is the same program twice — a debug build against a release one. Nine tenths of the debug
+binary is debug information, and what is left, 496,232 bytes, is the floor a Kotlin/Native
+executable starts from.
+
+In this portfolio the budget arrives through a
+[`sborka`](https://github.com/youndie/sborka) convention, as one property:
+`sborka.binaryBudget=50MiB`.
+
+### 📐 What the measurements found
+
+Measured by razves on six real Kotlin/Native binaries, all Kotlin 2.4.10, on 2026-09-11 — with
+verification addresses in [the research document](docs/research/research-architecture.md):
 
 * **The Kotlin/Native runtime is a fixed cost of about 40 KB.** 37,889 to 40,871 bytes across all
   six, a spread of under 3 KB over a **43× range of file size**. Its share falls from 17.6% to 0.2%,
   so "the runtime is 17.6% of this binary" means the binary does almost nothing — not that the
   runtime is heavy.
-* **The floor is 496,232 bytes**: one `println`, one dependency, of which 135,032 is the symbol
-  table.
-
-* **Kotlin is a minority of a large release binary.** 36–40% of the attributed bytes in `shildik`,
-  against 77% in a binary that is almost all Kotlin.
-  The majority is statically linked C — OpenSSL arriving through `ktor-client-curl` — plus, where a
-  Rust-backed driver is used, about 1.3 MB of `tokio` and `sqlx`.
-* **The symbol table is 19–27% of the file**, in every one of the six. It is the largest single removable
-  thing in a Kotlin/Native binary, and it is also exactly what razves reads.
-* **The Kotlin/Native toolchain does not ship a binary reader.** The LLVM distribution it downloads
-  is `…-essentials-` and contains no `llvm-nm`, `llvm-size`, `llvm-objdump` or `llvm-strip`. So
-  razves reads ELF and Mach-O itself, with no subprocess.
-* **`_ZN…` is mostly Rust, not C++.** Rust's legacy mangling shares Itanium's prefix. Grouping it as
-  "the Kotlin/Native runtime" misattributes about 964 KB in the subject binary; the genuine C++
-  runtime there is 14 KB.
-* **`nm` reports zero sizes for every Mach-O symbol.** Apple targets need an address-delta
-  algorithm, not a flag.
+* **The floor is 496,232 bytes**: one `println`, one dependency, of which 135,032 is the symbol table.
+* **Kotlin is a minority of a large release binary.** 36–40% of the attributed bytes in one real
+  service, against 77% in a binary that is almost all Kotlin. The majority is statically linked C —
+  OpenSSL arriving through `ktor-client-curl` — plus, where a Rust-backed driver is used, about
+  1.3 MB of `tokio` and `sqlx`.
+* **The symbol table is 19–27% of the file**, in every one of the six. It is the largest single
+  removable thing in a Kotlin/Native binary, and it is also exactly what razves reads.
+* **`_ZN…` is mostly Rust, not C++.** Rust's legacy mangling shares Itanium's prefix; grouping it as
+  "the Kotlin/Native runtime" misattributes about 964 KB in the subject binary, where the genuine C++
+  runtime is 14 KB.
+* **`nm` reports zero sizes for every Mach-O symbol.** Apple targets need an address-delta algorithm,
+  not a flag.
 * **9 of 568 packages are declared by two klibs.** razves reports those as ambiguous instead of
   picking one.
 
-## Documentation
+### ⚠️ Before you trust a row
 
-[`docs/`](docs/) — research, features with acceptance scenarios, and one document per module.
-The plan is in [`backlog.md`](backlog.md).
+* **Inlined code is charged to the caller.** An inlined stdlib helper has no symbol of its own, so
+  its bytes sit inside whichever function inlined it: the stdlib share is understated and the
+  application share overstated. No total moves, so the gate is unaffected.
+* **Data attributes worse than code.** `.rodata` coverage is 40.7% on the measured subject — a string
+  literal has no owning symbol. Every section carries its coverage for exactly this reason.
+* **Mach-O sizes include the padding after a symbol**, because the format records no size and the
+  number is a distance to the next one. ELF and Mach-O totals are not comparable to each other at
+  byte precision, and razves refuses to diff across the two.
+
+### 📚 Documentation
+
+[`docs/`](docs/) — the research, the features with their acceptance scenarios, and one document per
+module. What is planned and what was decided is in [`backlog.md`](backlog.md), one file per item.
 
 ```bash
 make check     # the documentation gate; CI runs exactly this
+./gradlew build
 ```
 
-## Licence
+Start with [`docs/research/research-architecture.md`](docs/research/research-architecture.md): it
+records the eighteen places where a measurement corrected the plan, six of which changed a decision.
+
+### 📄 Licence
 
 MIT — see [LICENSE](LICENSE).
