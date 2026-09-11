@@ -295,6 +295,35 @@ entry. But a CLI handed a directory of klibs can do module attribution too. That
 from "package-level only" to "package-level, or module-level if you point it at the klibs", which
 is a materially better product for anyone analysing a binary they did not build.
 
+**Correction found while implementing M1 (B-08).** "`klib info` prints the package list" is true
+and is not how razves reads it, because `klib info` is a process and a compiler distribution. Reading
+the klib directly turned out to cost a **DEFLATE decompressor**: the package list is in the zip's
+central directory and is free, but `unique_name` and `native_targets` are in `default/manifest`,
+and every entry of every klib is compressed — 86 of 86 in `ktor-http-linuxX64Main-3.5.1.klib`. The
+alternatives were a JVM-only `java.util.zip`, a cinterop binding to the system zlib, or guessing the
+coordinate from the Gradle cache's directory layout. Two hundred lines of RFC 1951 was the cheapest,
+and it is verified against `java.util.zip` on 8,642 entries and 87,025,540 bytes, byte for byte.
+
+**Two further corrections from the same work, both of which made the report wrong in ways that
+looked right.**
+
+*Empty intermediate packages.* A klib emits a `package_<fqn>/` directory for every level of every
+package it has, each carrying a real metadata fragment: `package_co/0_co.knm` is 14 bytes beside a
+3,985-byte `package_co.touchlab.stately.collections/0_collections.knm`, and nothing is declared in
+`co`. Counting directories put the ambiguous share at 9.3% against the 1.6% above. An empty fragment
+opens with three zero-length fields — `0A 00 12 00 1A 00` — and that is how razves tells them apart.
+
+*The klib set is the link classpath, not every klib on disk.* A project's build directory holds
+`kotlinTransformedMetadataLibraries/` copies of its dependencies whose `unique_name` is the
+source-set form: `kotlinx-datetime_commonMain` beside the published
+`org.jetbrains.kotlinx:kotlinx-datetime`. Supplying both makes every package that library declares
+look declared twice — **69 ambiguous rows worth 3.5 MB of 5.1 MB of Kotlin**, with nothing in the
+report to suggest anything is wrong. With a realistic classpath the same binary gives **40 resolved
+rows, 8 ambiguous (606,570 B), 27 with no declaring klib (70,038 B) — 86.8% of the Kotlin bytes on a
+named module.** This is the sharpest argument yet for [D8](#d8-one-core-two-front-ends-and-the-core-knows-nothing-about-gradle):
+knowing *which* klibs took part is not a convenience Gradle offers, it is the difference between a
+useful report and a useless one.
+
 **Consequence 2a, found while implementing M1 (B-07).** The klib package list is not only the
 module map — it is the **authority on which packages exist**, and razves needs that authority for a
 reason the brief did not anticipate. A declaration whose own name is lowercase is indistinguishable

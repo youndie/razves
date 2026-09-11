@@ -3,6 +3,8 @@ package io.github.youndie.razves.report
 import io.github.youndie.razves.attribute.Mangling
 import io.github.youndie.razves.attribute.Origin
 import io.github.youndie.razves.attribute.Packages
+import io.github.youndie.razves.klib.ModuleOwner
+import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.read.BinaryImage
 import io.github.youndie.razves.read.SectionKind
 import io.github.youndie.razves.read.Symbol
@@ -36,6 +38,7 @@ public object Attribution {
     public fun report(
         image: BinaryImage,
         packageDepth: Int = DEFAULT_PACKAGE_DEPTH,
+        modules: PackageToModule? = null,
     ): SizeReport {
         val reconciliation = of(image)
         val owners = reconciliation.sections.flatMap { it.owners }
@@ -54,8 +57,33 @@ public object Attribution {
                 .groupBy({ it.first }, { it.second })
                 .map { (name, extents) -> PackageRow(name, extents.sumOf { it.bytes }, extents.size) }
                 .sortedWith(compareByDescending<PackageRow> { it.bytes }.thenBy { it.name })
-        return SizeReport(reconciliation, rows, packages, packageDepth)
+        // Modules resolve on the FULL package name and never on the truncated one. A depth-3 row
+        // called `io.ktor.server` spans a dozen packages from several klibs; asking which module owns
+        // that name is asking a question with no answer, and the answer it would invent is a module
+        // that owns some of it.
+        val moduleRows =
+            modules
+                ?.let { map ->
+                    owners
+                        .mapNotNull { extent ->
+                            Packages.of(extent.symbol.name)?.let { fqn -> moduleRowName(map, fqn) to extent }
+                        }.groupBy({ it.first }, { it.second })
+                        .map { (row, extents) ->
+                            ModuleRow(row.first, extents.sumOf { it.bytes }, extents.size, row.second)
+                        }.sortedWith(compareByDescending<ModuleRow> { it.bytes }.thenBy { it.name })
+                }.orEmpty()
+        return SizeReport(reconciliation, rows, packages, packageDepth, moduleRows)
     }
+
+    private fun moduleRowName(
+        map: PackageToModule,
+        fqn: String,
+    ): Pair<String, ModuleRowKind> =
+        when (val owner = map.resolve(fqn)) {
+            is ModuleOwner.One -> owner.module to ModuleRowKind.RESOLVED
+            is ModuleOwner.Ambiguous -> "<ambiguous: ${owner.modules.joinToString(", ")}>" to ModuleRowKind.AMBIGUOUS
+            ModuleOwner.Unknown -> "<no klib declares $fqn>" to ModuleRowKind.UNATTRIBUTED_TO_A_MODULE
+        }
 
     /**
      * Three segments, because that is what makes the table readable rather than because it is round.

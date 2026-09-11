@@ -2,7 +2,10 @@ package io.github.youndie.razves.read
 
 import io.github.youndie.razves.attribute.Mangling
 import io.github.youndie.razves.attribute.Origin
+import io.github.youndie.razves.klib.KlibReader
+import io.github.youndie.razves.klib.PackageToModule
 import io.github.youndie.razves.report.Attribution
+import io.github.youndie.razves.report.ModuleRowKind
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -328,6 +331,103 @@ class RealBinaryTest {
         }
         return out
     }
+
+    @Test
+    fun theKotlinBytesSplitByModule() {
+        val file = subject() ?: return skipped("no subject binary found")
+        val klibDir = System.getProperty(KLIB_DIR_PROPERTY) ?: return skipped("no klib directory given")
+        val roots = klibDir.split(File.pathSeparatorChar).map(::File).filter { it.isDirectory }
+        val klibs = linkClasspathKlibs(roots) + unpackedKlibs(roots)
+        if (klibs.isEmpty()) return skipped("no readable klibs under $klibDir")
+
+        val map = PackageToModule(klibs)
+        val r = Attribution.report(ElfReader.read(file.readBytes(), file.name), modules = map)
+
+        println("Kotlin modules of ${file.name}, from ${map.moduleCount} klibs:")
+        r.modules.take(15).forEach {
+            println("  ${it.kind.name.take(1)} ${it.name.take(58).padEnd(60)}${it.bytes}")
+        }
+
+        assertTrue(r.hasModuleAttribution)
+        assertEquals(
+            r.bytesOf(Origin.KOTLIN),
+            r.modules.sumOf { it.bytes },
+            "the module rows are the Kotlin bucket, split - not a sample of it",
+        )
+        val ambiguous = r.modules.filter { it.kind == ModuleRowKind.AMBIGUOUS }
+        val unresolved = r.modules.filter { it.kind == ModuleRowKind.UNATTRIBUTED_TO_A_MODULE }
+        println(
+            "  resolved ${r.modules.count { it.kind == ModuleRowKind.RESOLVED }} rows, " +
+                "${ambiguous.size} ambiguous (${ambiguous.sumOf { it.bytes }} bytes), " +
+                "${unresolved.size} with no declaring klib (${unresolved.sumOf { it.bytes }} bytes)",
+        )
+        assertTrue(
+            ambiguous.none { it.name.count { c -> c == ':' } < 2 },
+            "an ambiguous row names every module that declares the package, so it carries at least two",
+        )
+        // Measured on the release subject with a realistic link classpath, 2026-09-11: 40 resolved
+        // rows, 8 ambiguous worth 606,570 bytes, 27 with no declaring klib worth 70,038 - so 86.8% of
+        // the Kotlin bytes land on a named module. The bounds are loose because the klib set depends
+        // on what the machine has built; what they guard is that the answer has not collapsed into
+        // ambiguity, which is what a klib set full of build intermediates does to it.
+        val kotlin = r.bytesOf(Origin.KOTLIN)
+        assertTrue(
+            ambiguous.sumOf { it.bytes }.toDouble() / kotlin < 0.25,
+            "${ambiguous.sumOf { it.bytes }} of $kotlin Kotlin bytes are ambiguous, which usually means the " +
+                "klib set carries a library twice - a published klib and a build intermediate of it",
+        )
+        assertTrue(
+            r.modules.count { it.kind == ModuleRowKind.RESOLVED } > r.modules.size / 2,
+            "most module rows should name one module",
+        )
+    }
+
+    /**
+     * The klibs that a link would actually see, which is not the same as every klib on disk.
+     *
+     * Found the hard way. Sweeping a project's whole build directory picks up
+     * `build/kotlinTransformedMetadataLibraries/`, whose copies of a dependency carry a source-set
+     * `unique_name` - `kotlinx-datetime_commonMain` beside the published
+     * `org.jetbrains.kotlinx:kotlinx-datetime`. They are the same library, and feeding both in makes
+     * every package that library declares look declared twice: 69 ambiguous rows worth 3.5 MB of 5.1
+     * MB of Kotlin, against the 1.6% the research measured. Nothing about the report looked broken.
+     *
+     * The rule razves needs is "the link classpath", which is precisely the thing the Gradle plugin
+     * knows and a directory sweep does not.
+     */
+    private fun linkClasspathKlibs(roots: List<File>) =
+        roots
+            .flatMap { root -> root.walkTopDown().filter { it.isFile && it.name.endsWith(".klib") } }
+            .filterNot { it.path.contains("kotlinTransformedMetadataLibraries") }
+            .filterNot { it.path.contains("/commonized/") }
+            .filter { it.name.contains("linuxX64Main") || it.path.contains("/shildik/") }
+            .mapNotNull { runCatching { KlibReader.readArchive(it.readBytes(), it.name) }.getOrNull() }
+
+    /**
+     * The stdlib and every `platform.*` library ship unpacked in the Kotlin/Native distribution.
+     * Without them a quarter of a megabyte of `kotlin.text.regex` has no declaring module.
+     */
+    private fun unpackedKlibs(roots: List<File>) =
+        roots
+            .flatMap { root -> root.walkTopDown().filter { it.isDirectory && File(it, "default/manifest").isFile } }
+            .mapNotNull { dir ->
+                runCatching {
+                    KlibReader.readUnpacked(
+                        manifestText = File(dir, "default/manifest").readText(),
+                        entryNames =
+                            dir
+                                .walkTopDown()
+                                .map {
+                                    it
+                                        .relativeTo(
+                                            dir,
+                                        ).path + if (it.isDirectory) "/" else ""
+                                }.toList(),
+                        name = dir.name,
+                        contentOf = { relative -> File(dir, relative).takeIf { it.isFile }?.readBytes() },
+                    )
+                }.getOrNull()
+            }
 
     private fun machOSubject(): File? {
         val configured = System.getenv(MACHO_SUBJECT_ENV) ?: System.getProperty(MACHO_SUBJECT_ENV)

@@ -188,11 +188,23 @@ dynamic-linking metadata.
 * **Automated:** `RealBinaryTest.everyPackageAtFullDepthIsOneAKlibDeclares` — skips, by name, without
   a klib directory.
 
-### Scenario: an ambiguous package is not silently assigned — *target*
-* **Given:** a binary containing `org.koin.core` symbols and a klib set in which both
-  `io.insert-koin:koin-core` and `io.insert-koin:koin-ktor` declare that package.
+### Scenario: an ambiguous package is not silently assigned
+* **Given:** a binary containing symbols of a package that two klibs both declare.
 * **When:** razves attributes to modules.
 * **Then:** those bytes appear in a row naming both modules, and in neither module's own row.
+* **And:** measured on the release subject with a realistic link classpath — 40 resolved rows, 8
+  ambiguous worth 606,570 bytes, 27 with no declaring klib worth 70,038.
+* **Automated:** `PackageToModuleTest.aPackageTwoKlibsDeclareIsAmbiguousAndNotResolved`,
+  `RealBinaryTest.theKotlinBytesSplitByModule`
+
+### Scenario: razves reads a klib without a subprocess
+* **Given:** a klib as a zip, and a klib unpacked as a directory.
+* **When:** razves reads its `unique_name`, `native_targets` and package list.
+* **Then:** both shapes produce the same answer, and no process is spawned — the manifest is
+  inflated by razves' own DEFLATE.
+* **And:** that decompressor agrees with `java.util.zip` byte for byte; measured over 8,642 entries
+  and 87,025,540 bytes.
+* **Automated:** `KlibTest`, `InflateOracleTest.everyEntryOfEveryKlibInflatesToWhatTheJvmSays`
 
 ### Scenario: klibs for the wrong target are refused — *target*
 * **Given:** a `linuxX64` binary and a klib directory whose manifests declare `native_targets=macos_arm64`.
@@ -249,6 +261,11 @@ dynamic-linking metadata.
   uses it.
 * **`.rodata` coverage is 40.6%.** Any conclusion about data size rests on less than half of the
   section, which is why coverage is printed per section.
+* **The klib set must be the link classpath.** A directory sweep of a project's build tree picks up
+  `kotlinTransformedMetadataLibraries/` copies of dependencies, whose `unique_name` is the source-set
+  form — so the same library appears twice and every package it declares reads as ambiguous. Measured:
+  69 ambiguous rows worth 3.5 MB against 8 worth 0.6 MB. Nothing in the report looks wrong when this
+  happens, which is why the plugin supplies the classpath rather than a directory.
 * **NOBITS sections have no owner at all.** `.bss` and `.tbss` are counted in the virtual size and
   excluded from attribution entirely, so a package with a megabyte of uninitialised state gets no
   row for it. That is defensible while the subject is file size — NOBITS costs nothing to ship — and

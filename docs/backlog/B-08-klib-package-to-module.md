@@ -1,7 +1,7 @@
 ---
 id: B-08
 title: "Map package to module from klib manifests, and report ambiguity as ambiguity"
-status: open
+status: done
 priority: P1
 size: M
 stage: stage-1-attribution
@@ -28,7 +28,39 @@ two modules**: `androidx.lifecycle`, five `com.github.ajalt.clikt.*`,
 - Does **not** cover: resolving the ambiguity via `dump-metadata`. Deferred to
   [B-19](B-19-full-fqn-module-map.md) until an ambiguous row is big enough to complain about.
 
-- AC: `org.koin.core` symbols in the Postgres release subject land in an ambiguous row naming
-  `io.insert-koin:koin-core` and `io.insert-koin:koin-ktor`, and in neither module's own row.
-- AC: without klibs the report stops at package level and its header says so.
-- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/klib/KlibManifest.kt`
+- AC: a package two klibs declare lands in an ambiguous row naming both, and in neither module's own
+  row. Measured on the release subject: 8 such rows, 606,570 bytes.
+- AC: without klibs the report stops at package level and `hasModuleAttribution` says so.
+- Anchors: `core/src/commonMain/kotlin/io/github/youndie/razves/klib/Klib.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/klib/PackageToModule.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/klib/Zip.kt`,
+  `core/src/commonMain/kotlin/io/github/youndie/razves/klib/Inflate.kt`
+
+**Done, and it cost a DEFLATE decompressor.** The package list comes out of the zip's central
+directory, which is never compressed - but `unique_name` and `native_targets` live in
+`default/manifest`, and every entry of every klib is deflated (measured: 86 entries of
+`ktor-http-linuxX64Main-3.5.1.klib`, all method 8). `java.util.zip` is JVM-only and the CLI is a
+native binary; a cinterop binding to zlib adds a def file and a platform link; guessing the
+coordinate from the Gradle cache's directory layout is a guess about someone else's implementation
+detail. Two hundred lines of RFC 1951 was the cheapest of the four and the only one that survives the
+next front end. **Verified against `java.util.zip` on 8,642 entries, 87,025,540 bytes, byte for
+byte.**
+
+**Two traps, both found by measuring rather than by reading.**
+
+A klib emits a `package_<fqn>/` directory for every *intermediate* level of its packages, each with a
+real metadata fragment - `package_co/0_co.knm` is 14 bytes beside a 3,985-byte
+`package_co.touchlab.stately.collections/0_collections.knm`, and nothing is declared in `co`.
+Counting directories made the ambiguous share 9.3% against the 1.6% `klib info` reports. An empty
+fragment is recognisable structurally: its metadata opens with three zero-length fields,
+`0A 00 12 00 1A 00`. Only prefixes of other packages are inflated to check.
+
+**The klib set must be the link classpath, not every klib on disk.** A project's build directory
+holds `kotlinTransformedMetadataLibraries/` copies whose `unique_name` is the source-set form -
+`kotlinx-datetime_commonMain` beside the published `org.jetbrains.kotlinx:kotlinx-datetime`. Feeding
+both in makes every package that library declares look declared twice: **69 ambiguous rows worth 3.5
+MB of 5.1 MB of Kotlin**, and nothing about the report looks broken. With a realistic classpath the
+same binary gives **40 resolved rows, 8 ambiguous (606,570 bytes) and 27 with no declaring klib
+(70,038 bytes) - 86.8% of the Kotlin bytes on a named module.** This is exactly the thing the Gradle
+plugin knows and a directory sweep does not, and it is now the first requirement of
+[B-12](B-12-gradle-size-report.md).

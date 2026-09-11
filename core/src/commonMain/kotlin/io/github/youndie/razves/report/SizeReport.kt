@@ -23,7 +23,15 @@ public class SizeReport internal constructor(
     public val packages: List<PackageRow> = emptyList(),
     /** How many segments of a package name the rows were truncated to. */
     public val packageDepth: Int = Int.MAX_VALUE,
+    /**
+     * The Kotlin bucket, split by the klib each package came from. Empty when no klibs were supplied,
+     * and the report says so rather than leaving a reader to wonder.
+     */
+    public val modules: List<ModuleRow> = emptyList(),
 ) {
+    /** False when no klibs were supplied: the report stops at package level and says which. */
+    public val hasModuleAttribution: Boolean = modules.isNotEmpty()
+
     public val image: io.github.youndie.razves.read.BinaryImage get() = reconciliation.image
 
     init {
@@ -42,6 +50,13 @@ public class SizeReport internal constructor(
         }
         require(packages.map { it.name }.distinct().size == packages.size) {
             "a package appears twice in the report for ${image.name}"
+        }
+        require(modules.isEmpty() || modules.sumOf { it.bytes } == bytesOf(Origin.KOTLIN)) {
+            "the module split of ${image.name} does not add up to its Kotlin bytes: " +
+                "${modules.sumOf { it.bytes }} != ${bytesOf(Origin.KOTLIN)}"
+        }
+        require(modules.map { it.name }.distinct().size == modules.size) {
+            "a module appears twice in the report for ${image.name}"
         }
     }
 
@@ -92,6 +107,32 @@ public data class PackageRow(
     val bytes: Long,
     val symbols: Int,
 )
+
+/**
+ * One module and what it costs.
+ *
+ * [name] is a klib's `unique_name` - `io.ktor:ktor-http` - or one of the two honest answers: a row
+ * naming every module that declares an ambiguous package, or the row for code no supplied klib
+ * accounts for, which is usually the application's own.
+ */
+public data class ModuleRow(
+    val name: String,
+    val bytes: Long,
+    val symbols: Int,
+    val kind: ModuleRowKind,
+)
+
+/** Which of the three answers a module row is. */
+public enum class ModuleRowKind {
+    /** Exactly one klib declares the package these bytes came from. */
+    RESOLVED,
+
+    /** More than one klib declares it, and razves will not pick. */
+    AMBIGUOUS,
+
+    /** No supplied klib declares it: the application's own code, or a klib that was not supplied. */
+    UNATTRIBUTED_TO_A_MODULE,
+}
 
 /** One origin and what it costs. [symbols] is there so a huge row of tiny symbols reads differently. */
 public data class OriginRow(
