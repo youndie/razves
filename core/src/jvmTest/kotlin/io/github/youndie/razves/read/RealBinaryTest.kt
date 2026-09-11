@@ -57,6 +57,11 @@ class RealBinaryTest {
         )
         assertEquals(r.allocatedBytes, r.attributedBytes + r.unattributedBytes)
         assertTrue(image.hasSymbolTable, "${file.name} is stripped; razves has nothing to read in it")
+        assertEquals(
+            setOf("linux_x64", "android_x64"),
+            image.targets,
+            "an ELF x86-64 file is one of these two and the container cannot say which",
+        )
 
         val text =
             assertNotNull(
@@ -121,6 +126,11 @@ class RealBinaryTest {
             r.headerBytes + r.allocatedBytes + r.metadataBytes + r.interRegionPadding + r.unparsedBytes,
         )
         assertEquals(SizeAlgorithm.ADDRESS_DELTA, image.sizeAlgorithm)
+        assertEquals(
+            setOf("macos_arm64"),
+            image.targets,
+            "LC_BUILD_VERSION names the platform and the header names the CPU; together they are exact",
+        )
 
         val text = assertNotNull(r.sections.firstOrNull { it.section.qualifiedName == "__TEXT,__text" })
         assertTrue(

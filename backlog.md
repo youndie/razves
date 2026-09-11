@@ -37,7 +37,7 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (13)
+## Open (12)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
@@ -46,7 +46,6 @@ layer, so re-prioritising an item must never move its file.
 | [B-11](docs/backlog/B-11-cli.md) `[ ]` | The CLI: report and diff for any binary, with optional klibs | P1 | M | - |
 | [B-12](docs/backlog/B-12-gradle-size-report.md) `[ ]` | Gradle plugin: sizeReport, wired to the link tasks, configuration-cache clean | P1 | M | - |
 | [B-13](docs/backlog/B-13-baseline-and-diff.md) `[ ]` | A committed baseline and a row-level diff | P1 | M | - |
-| [B-15](docs/backlog/B-15-refuse-stripped-and-mismatched.md) `[ ]` | Refuse a stripped binary and a klib set for the wrong target | P1 | S | - |
 | [B-09](docs/backlog/B-09-c-attribution-by-archive.md) `[?]` | Attribute C symbols to the static archive that defines them | P2 | L | - |
 | [B-16](docs/backlog/B-16-run-on-the-three-subjects.md) `[ ]` | Report on shildik, booblik and telek, and write the article from the numbers | P2 | M | B-10 |
 | [B-17](docs/backlog/B-17-sborka-convention.md) `[ ]` | A sborka convention that applies the gate from one property | P2 | S | B-14 |
@@ -55,7 +54,7 @@ layer, so re-prioritising an item must never move its file.
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-21](docs/backlog/B-21-attribute-nobits-sections.md) `[ ]` | Attribute NOBITS sections so uninitialised state has an owner | P3 | S | B-20 |
 
-## Closed (9)
+## Closed (10)
 
 **Read the file, and prove you read all of it**
 
@@ -70,6 +69,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-06](docs/backlog/B-06-origin-buckets.md) `[x]` - Origin buckets and per-section coverage in the report model
 - [B-07](docs/backlog/B-07-kotlin-packages.md) `[x]` - Aggregate Kotlin symbols by package
 - [B-08](docs/backlog/B-08-klib-package-to-module.md) `[x]` - Map package to module from klib manifests, and report ambiguity as ambiguity
+- [B-15](docs/backlog/B-15-refuse-stripped-and-mismatched.md) `[x]` - Refuse a stripped binary and a klib set for the wrong target
 - [B-22](docs/backlog/B-22-fold-undeclared-packages.md) `[x]` - Fold a package name no klib declares up to the longest one that is declared
 
 <!-- END INDEX -->

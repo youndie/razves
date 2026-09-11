@@ -175,11 +175,15 @@ dynamic-linking metadata.
   reads as a binary containing nothing.
 * **Automated:** `ElfReaderTest.aStrippedBinaryIsReadableAndSaysItHasNoSymbolTable`
 
-### Scenario: a stripped binary is refused — *target*
+### Scenario: a stripped binary is refused
 * **Given:** a binary with no `.symtab`.
-* **When:** razves is pointed at it.
+* **When:** razves is asked to report on it.
 * **Then:** it fails, naming the binary as stripped and pointing at the link output.
 * **And:** it does **not** emit a report showing 100% unattributed.
+* **And:** section-level reconciliation still works on it — the refusal is about attribution, not
+  about reading.
+* **Automated:** `RefusalsTest.aStrippedBinaryIsRefusedAndNotReportedAsEmpty`,
+  `RefusalsTest.theReconciliationStillWorksOnAStrippedBinary`
 
 ### Scenario: the Kotlin bytes are split by package
 * **Given:** a binary carrying Kotlin symbols in several packages.
@@ -229,10 +233,19 @@ dynamic-linking metadata.
   and 87,025,540 bytes.
 * **Automated:** `KlibTest`, `InflateOracleTest.everyEntryOfEveryKlibInflatesToWhatTheJvmSays`
 
-### Scenario: klibs for the wrong target are refused — *target*
-* **Given:** a `linuxX64` binary and a klib directory whose manifests declare `native_targets=macos_arm64`.
+### Scenario: klibs for the wrong target are refused, and only when they contradict
+* **Given:** a `linuxX64` binary and klibs whose manifests declare `native_targets=macos_arm64`.
 * **When:** razves is asked for module attribution.
-* **Then:** it refuses, naming the binary's target and the klibs' target.
+* **Then:** it refuses, naming both sides.
+* **And:** an ELF x86-64 binary against `android_x64` klibs is **accepted** — the container names the
+  CPU and says nothing about the operating system, so razves names both possibilities rather than
+  guessing one.
+* **And:** a Mach-O with no `LC_BUILD_VERSION`, or klibs with no `native_targets`, refuses nothing:
+  a check that cannot identify its subject must not veto it.
+* **And:** measured on the real subjects — an ELF x86-64 is `linux_x64` or `android_x64`; a Mach-O
+  with `cputype=0x0100000C` and `platform=1` is exactly `macos_arm64`.
+* **Automated:** `RefusalsTest`, `RealBinaryTest.theIdentitiesHoldOnARealKotlinNativeBinary`,
+  `RealBinaryTest.theIdentitiesHoldOnARealMachOBinary`
 
 ## 6. Out of scope
 

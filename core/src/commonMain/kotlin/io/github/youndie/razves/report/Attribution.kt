@@ -40,6 +40,7 @@ public object Attribution {
         packageDepth: Int = DEFAULT_PACKAGE_DEPTH,
         modules: PackageToModule? = null,
     ): SizeReport {
+        refuseWhatCannotBeReported(image, modules)
         val reconciliation = of(image)
         val owners = reconciliation.sections.flatMap { it.owners }
         val byOrigin = owners.groupBy { Mangling.originOf(it.symbol.name) }
@@ -112,6 +113,37 @@ public object Attribution {
         packageName: String,
         depth: Int,
     ): String = packageName.split('.').take(depth).joinToString(".")
+
+    /**
+     * The two inputs that produce a report which looks fine and means nothing.
+     *
+     * **A stripped binary.** `.symtab` and `.strtab` are 19-21% of the file in all four measured
+     * subjects, so they are the first thing a size-conscious build deletes - and they are exactly
+     * what razves reads. Without them every byte is unattributed, which is not a finding about the
+     * binary. Refused rather than warned about: a warning printed above a report is read after the
+     * reader has already believed the numbers.
+     *
+     * **Klibs for the wrong target.** Each manifest carries `native_targets`, and a `linuxX64` binary
+     * attributed against `macosArm64` klibs produces module rows that are plausible and wrong. Only a
+     * clear contradiction is refused: if razves cannot name the binary's target, or the klibs name
+     * none, nothing is claimed and nothing is vetoed.
+     */
+    private fun refuseWhatCannotBeReported(
+        image: BinaryImage,
+        modules: PackageToModule?,
+    ) {
+        require(image.hasSymbolTable) {
+            "${image.name} is stripped - it carries no symbol table, so there is nothing in it to " +
+                "attribute. Point razves at the link output, before whatever removes the symbols."
+        }
+        val klibTargets = modules?.targets.orEmpty()
+        if (image.targets.isEmpty() || klibTargets.isEmpty()) return
+        require(image.targets.any { it in klibTargets }) {
+            "${image.name} is a ${image.targets.sorted().joinToString(" or ")} binary, and the klibs " +
+                "supplied were built for ${klibTargets.sorted().joinToString(", ")}. Attributing one " +
+                "against the other produces module rows that are plausible and wrong."
+        }
+    }
 
     private fun moduleRowName(
         map: PackageToModule,

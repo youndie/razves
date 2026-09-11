@@ -28,6 +28,14 @@ public class PackageToModule(
 
     public val moduleCount: Int = klibs.map { it.uniqueName }.distinct().size
 
+    /**
+     * Every target any of these klibs was built for.
+     *
+     * Metadata-only klibs declare none and are simply absent from this, which is why an empty set
+     * means "nothing here says what it was built for" rather than "built for nothing".
+     */
+    public val targets: Set<String> = klibs.flatMap { it.targets }.toSet()
+
     public fun resolve(packageName: String): ModuleOwner =
         when (val modules = owners[packageName]) {
             null -> ModuleOwner.Unknown

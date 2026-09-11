@@ -35,6 +35,7 @@ public object MachOReader {
     private const val LC_FUNCTION_STARTS = 0x26
     private const val LC_DATA_IN_CODE = 0x29
     private const val LC_CODE_SIGNATURE = 0x1D
+    private const val LC_BUILD_VERSION = 0x32
 
     private const val S_ZEROFILL = 0x1
     private const val S_GB_ZEROFILL = 0xC
@@ -77,6 +78,7 @@ public object MachOReader {
         val metadata = mutableListOf<Section>()
         val segmentStarts = mutableListOf<Long>()
         var symtab: SymtabCommand? = null
+        var platform: Int? = null
 
         var at = HEADER_SIZE
         repeat(ncmds) {
@@ -93,6 +95,7 @@ public object MachOReader {
                 LC_FUNCTION_STARTS -> linkEditData(b, at, "function starts", metadata)
                 LC_DATA_IN_CODE -> linkEditData(b, at, "data in code", metadata)
                 LC_CODE_SIGNATURE -> linkEditData(b, at, "code signature", metadata)
+                LC_BUILD_VERSION -> platform = b.u32(at + 8).toInt()
                 else -> Unit
             }
             at += cmdSize
@@ -115,6 +118,7 @@ public object MachOReader {
             // region, and razves does not parse all of them. A byte no named region claims is
             // reported as unparsed rather than treated as a defect — see BinaryImage.
             coversEveryFileByte = false,
+            targets = Targets.ofMachO(b.u32(4).toInt(), platform),
         )
     }
 

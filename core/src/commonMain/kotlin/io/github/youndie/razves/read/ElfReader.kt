@@ -103,6 +103,7 @@ public object ElfReader {
             // The section header table lists every byte-bearing region of an ELF file, so a byte
             // belonging to nothing is a defect in this reader rather than a property of the binary.
             coversEveryFileByte = true,
+            targets = Targets.ofElf(b.u16(18)),
         )
     }
 

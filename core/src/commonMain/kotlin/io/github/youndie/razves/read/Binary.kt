@@ -112,6 +112,12 @@ public data class BinaryImage(
      * reported as unparsed, which is a row of the report rather than a failure.
      */
     val coversEveryFileByte: Boolean,
+    /**
+     * The Kotlin/Native targets this binary could have been built for, in the names a klib manifest
+     * uses. Empty when the container and CPU are not enough to say - in which case nothing is refused
+     * on the strength of them.
+     */
+    val targets: Set<String> = emptySet(),
 ) {
     /** Bytes taken by the container's own tables rather than by anything it describes. */
     public val headerBytes: Long get() = containerRegions.sumOf { it.size }
