@@ -23,6 +23,24 @@ kotlin {
     }
 }
 
+// The same repository the plugin publishes into, so a TestKit project can resolve razves by
+// coordinate: the plugin's POM names `core` as a dependency, and a repository holding only the
+// plugin would fail to resolve it.
+publishing {
+    repositories {
+        maven {
+            name = "testRepository"
+            url =
+                project(":gradle-plugin")
+                    .layout.buildDirectory
+                    .dir("test-repository")
+                    .get()
+                    .asFile
+                    .toURI()
+        }
+    }
+}
+
 // The real-binary checks need a subject, and a subject is 15-40 MB and belongs to another
 // repository, so it is named from the outside rather than committed. An environment variable does
 // not reach a Gradle test JVM on its own - the daemon's environment is whatever started it, which

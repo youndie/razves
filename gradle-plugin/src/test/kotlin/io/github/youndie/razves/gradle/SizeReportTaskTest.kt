@@ -347,6 +347,60 @@ class SizeReportTaskTest {
         }
     }
 
+    @Test
+    fun razvesIsConsumableByCoordinateRatherThanOnlyByClasspath() {
+        // Every other test here hands the plugin over with `withPluginClasspath()`, which proves the
+        // code works and nothing about whether the PUBLISHED artifact does. This one resolves razves
+        // the way a repository would - by id, through a resolver, out of a repository this build
+        // published into - which is the thing B-17 needs before a sborka convention can apply it.
+        if (HOST_TARGET == null) return skipped()
+        val repository = System.getProperty("RAZVES_TEST_REPOSITORY") ?: return skipped()
+        val version = System.getProperty("RAZVES_VERSION") ?: return skipped()
+
+        File(projectDir, "settings.gradle.kts").writeText(
+            """
+            rootProject.name = "subject"
+            pluginManagement {
+                repositories {
+                    maven { url = uri("$repository") }
+                    gradlePluginPortal()
+                    mavenCentral()
+                }
+            }
+            dependencyResolutionManagement {
+                repositories {
+                    maven { url = uri("$repository") }
+                    mavenCentral()
+                }
+            }
+            """.trimIndent(),
+        )
+        File(projectDir, "gradle.properties").writeText("org.gradle.jvmargs=-Xmx2g\n")
+        File(projectDir, "build.gradle.kts").writeText(
+            """
+            plugins {
+                kotlin("multiplatform") version "$KOTLIN_VERSION"
+                id("io.github.youndie.razves") version "$version"
+            }
+            kotlin { $HOST_TARGET { binaries.executable { entryPoint = "subject.main" } } }
+            """.trimIndent(),
+        )
+        val source = File(projectDir, "src/commonMain/kotlin/subject")
+        source.mkdirs()
+        File(source, "Main.kt").writeText("package subject\n\nfun main() = println(1)\n")
+
+        val result =
+            GradleRunner
+                .create()
+                .withProjectDir(projectDir)
+                .withArguments(TASK)
+                .forwardOutput()
+                .build()
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":$TASK")?.outcome)
+        assertTrue(File(projectDir, "build/reports/razves/debugExecutable.json").isFile)
+    }
+
     private fun skipped() {
         println("SKIPPED SizeReportTaskTest: this host has no Kotlin/Native target razves can link here.")
     }

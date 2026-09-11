@@ -6,7 +6,7 @@ priority: P2
 size: S
 stage: stage-3-subjects
 epic: feature-size-budget-gate
-blocked_by: [B-14]
+blocked_by: [B-25]
 ---
 
 # B-17 — A sborka convention that applies the gate from one property
@@ -14,6 +14,13 @@ blocked_by: [B-14]
 `sborka` is where this portfolio's repositories get their conventions in one line of
 `gradle.properties` instead of dozens of lines of Kotlin. The size gate belongs there; the tool
 does not.
+
+**Re-blocked when it came up.** The item assumed a `sborka` convention could apply
+`io.github.youndie.razves` as soon as the gate existed. It cannot: a convention plugin that applies
+another plugin needs that plugin resolvable on the build classpath of every repository taking the
+convention, and **razves had never been published anywhere**. [B-24](B-24-consumable-by-coordinate.md)
+made it publishable and proved a project can apply it by id;
+[B-25](B-25-publish-razves.md) is the remote, and this waits on that rather than on the gate.
 
 - **The decision and its reason.** razves stays its own repository and `sborka` calls it
   ([research D9](../research/research-architecture.md)). A tool whose CLI is a product needs its

@@ -7,6 +7,7 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.work.DisableCachingByDefault
 
 /**
  * Rewrites the committed baseline, and is **deliberately not part of `check`**.
@@ -15,6 +16,12 @@ import org.gradle.api.tasks.TaskAction
  * split for `mutationTest`, for the same reason: a gate whose baseline moves with the thing it
  * measures is a gate that has never failed and never will.
  */
+@DisableCachingByDefault(
+    because =
+        "It writes into the source tree rather than into build output, and it is meant to be run " +
+            "deliberately and the result committed. A cache hit would silently skip the write that is " +
+            "the entire purpose of the task.",
+)
 public abstract class SizeBaselineWriteTask : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)

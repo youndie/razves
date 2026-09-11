@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
     id("io.github.youndie.sborka.jvm")
     id("io.github.youndie.sborka.lint")
+    id("io.github.youndie.sborka.publish")
 }
 
 // What only the build knows: which binary was linked, and which klibs took part. Everything else is
@@ -29,6 +30,33 @@ val testPluginClasspath: Configuration by configurations.creating {
 
 tasks.pluginUnderTestMetadata {
     pluginClasspath.from(testPluginClasspath)
+}
+
+// A repository inside `build/`, so that one test can consume razves the way a real repository does -
+// by id, through a resolver - rather than through TestKit's `withPluginClasspath()`, which hands the
+// plugin over as a classpath and proves nothing about whether the published artifact works.
+//
+// Into `build/` rather than `~/.m2`: a test that writes to a developer's local repository leaves
+// something behind, and "it worked because your machine already had it" is the failure this test is
+// meant to catch.
+val testRepository: Directory = layout.buildDirectory.dir("test-repository").get()
+
+publishing {
+    repositories {
+        maven {
+            name = "testRepository"
+            url = testRepository.asFile.toURI()
+        }
+    }
+}
+
+tasks.named<Test>("test") {
+    dependsOn(
+        "publishAllPublicationsToTestRepositoryRepository",
+        ":core:publishAllPublicationsToTestRepositoryRepository",
+    )
+    systemProperty("RAZVES_TEST_REPOSITORY", testRepository.asFile.path)
+    systemProperty("RAZVES_VERSION", version.toString())
 }
 
 gradlePlugin {
