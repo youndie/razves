@@ -8,13 +8,17 @@
 [![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
 [![licence](https://img.shields.io/badge/licence-MIT-green.svg)](LICENSE)
 
-**Where did the bytes in your Kotlin/Native binary go?**
+**Where did the bytes in your Kotlin/Native binary go — and where did the time?**
 
-`bloaty` will tell you that `kfun:io.ktor.server.engine#embeddedServer(...)` is 4,112 bytes. True,
-and useless. razves aggregates the same bytes into the units a Kotlin developer can act on — the
-package, and the klib the package came from — and then lets a build fail when the total grows.
+`bloaty` will tell you that `kfun:io.ktor.server.engine#embeddedServer(...)` is 4,112 bytes. `perf`
+will tell you the same mangled symbol was on the stack. Both are true and neither is actionable.
+razves turns bytes **and samples** into the units a Kotlin developer can act on — the package, and
+the klib the package came from — out of one symbol table, and then lets a build fail when the binary
+grows.
 
 > 📦 every byte of the file is charged to exactly one row, and the rows add up to the file size
+>
+> ⏱ every sample lands in exactly one row too, including the two rows for the ones razves cannot name
 
 Reads ELF and Mach-O itself, with no subprocess: not `llvm-nm`, not `bloaty`, not `strip`. The
 Kotlin/Native toolchain ships none of them ([why](docs/research/research-architecture.md)).
@@ -85,7 +89,7 @@ pluginManagement {
 // build.gradle.kts — the version is the one on the snapshots badge above
 plugins {
     kotlin("multiplatform")
-    id("io.github.youndie.razves") version "0.1.0.9"
+    id("io.github.youndie.razves") version "0.1.0.23"
 }
 
 binarySize {
@@ -110,6 +114,55 @@ razves diff before.json after.json
 
 Without `--klibs` the report stops at package level and says so in its header. The report model on
 its own is `io.github.youndie.razves:core` — multiplatform, no Gradle API on its classpath.
+
+### ⏱ Where the time went
+
+The same binary, the same packages, a different question. A program links the `:sampler` module,
+runs, and writes a dump of raw addresses; razves names them afterwards, out of the file:
+
+```
+razves probe.kexe
+  1,206 samples
+  1000 Hz requested on the wall clock
+  97.0% of the leaves have a name
+  385 collections seen, 8.2 ms of pause in total, longest 494 us
+
+BY ORIGIN
+                                                    self       total
+  kotlin                                           1,103 91.4%      1,206 100.0%
+  kotlin_runtime                                       68 5.6%          101 8.3%
+  <outside the binary>                                 35 2.9%      1,206 100.0%
+
+BY PACKAGE
+                                                    self       total
+  io.github.youndie                                  674 55.8%      1,206 100.0%
+  kotlin.collections                                 429 35.5%         449 37.2%
+  kotlin_runtime                                       68 5.6%          101 8.3%
+```
+
+```bash
+razves profile app.dump app.kexe --klibs ~/.konan/…/klib     # the table above
+razves profile app.dump app.kexe --out cpu.pb.gz             # the same thing as pprof
+```
+
+**What runs inside your process is a C signal handler and a fixed ring buffer, and nothing else.**
+No symbol is read there, no name resolved, no allocation on the sampled path — razves does all of
+that afterwards, from the binary. The handler is C because a Kotlin one **hangs**: measured at 3 hung
+runs in 10 at 100 Hz and 8 in 10 at 1 kHz, deadlocking against the allocator it interrupted. The C
+one completed 10 runs of 10 at every rate up to 10 kHz.
+
+**`self` and `total` are both there, always.** A row with a large total and no self is a caller; one
+with both is where the work is. And what the ring could not hold is counted rather than dropped
+silently — a profile that lost two thirds of its samples says so.
+
+The pprof file opens in `go tool pprof` and the browser profilers, with Kotlin names rather than
+`kfun:` ones. There is also `razves-mcp`, the same answers over MCP on stdio, read-only: it cannot
+sample anything, deliberately.
+
+**The sampler is not published yet** — `core`, the Gradle plugin and its marker are, and the
+in-process half is built from this repository until
+[B-38](docs/backlog/B-38-publish-the-sampler.md) lands. It is the one artefact a consumer has to
+link, so that gap is named rather than left to be discovered.
 
 ### 🚦 The gate is the point
 
@@ -183,6 +236,24 @@ verification addresses in [the research document](docs/research/research-archite
 * **9 of 568 packages are declared by two klibs.** razves reports those as ambiguous instead of
   picking one.
 
+And from building the profiler on top of it, on one Linux x86-64 machine and one Apple arm64
+([the second research document](docs/research/research-profiler.md)):
+
+* **A Kotlin signal handler is not viable.** 3 hung runs in 10 at 100 Hz, 8 in 10 at 1 kHz, and the
+  failures vanish when the sampled workload stops allocating. It is not the handler's body — one that
+  only increments an atomic fails just as often — it is entering the Kotlin runtime from a signal.
+* **The rate you ask for is not the rate you get.** A CPU-time clock on Linux saturates at ~200 Hz
+  whatever you set, because it advances on the scheduler tick; a monotonic timer delivered 8,204 Hz
+  for 10,000 requested. On macOS the same request gave 964 Hz on the wall clock and 334 on the CPU
+  one. So the profile reports the rate it achieved, not the one it wanted.
+* **Sampling costs less than this machine can measure.** A stand that proves its own resolution —
+  deliberate extra work, climbing until it can see it — resolves 5% here, and at ~900 Hz the cost is
+  under that. It also refused the obvious shortcut: the cost did not rise between 7,216 Hz and
+  17,944 Hz, so it is not linear in the rate and no high-rate figure can be scaled down.
+* **Two platforms, the same names, different shares.** The same program profiles to the same package
+  rows on both, but `<outside the binary>` is 1.4% on Linux and 16.4% on macOS — because macOS links
+  libsystem dynamically and the Linux build carries the same code inside the image.
+
 ### ⚠️ Before you trust a row
 
 * **Inlined code is charged to the caller.** An inlined stdlib helper has no symbol of its own, so
@@ -193,6 +264,13 @@ verification addresses in [the research document](docs/research/research-archite
 * **Mach-O sizes include the padding after a symbol**, because the format records no size and the
   number is a distance to the next one. ELF and Mach-O totals are not comparable to each other at
   byte precision, and razves refuses to diff across the two.
+* **A sampled stack always leaves the binary.** libc, the loader, a shared library: those frames are
+  named `<outside the binary>` rather than folded into the nearest Kotlin one, and on Apple targets
+  they are most of what razves cannot name.
+* **The collector is polled, because there is nothing to subscribe to.** `GC.lastGCInfo` is all the
+  runtime offers, so a poll slower than the collection rate loses some — and the profile says how
+  many. Measured on one workload: 389 seen and none missed at one poll rate, 12 seen and 346 missed
+  at another.
 
 ### 📚 Documentation
 
@@ -206,6 +284,8 @@ make check     # the documentation gate; CI runs exactly this
 
 Start with [`docs/research/research-architecture.md`](docs/research/research-architecture.md): it
 records the eighteen places where a measurement corrected the plan, six of which changed a decision.
+[`research-profiler.md`](docs/research/research-profiler.md) does the same for the sampling half, and
+its §6 is where two of its own facts were later withdrawn by better measurements.
 
 ### 📄 Licence
 
