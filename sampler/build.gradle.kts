@@ -2,6 +2,10 @@ plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("io.github.youndie.sborka.kmp")
     id("io.github.youndie.sborka.lint")
+    // PUBLISHED, and it is the only module here that has to be. Everything else in razves reads files
+    // after the fact; this is the half a profiled program links, so a profiler whose sampler lives
+    // only in this build is a profiler nobody outside it can use.
+    id("io.github.youndie.sborka.publish")
 }
 
 // The half of the profiler that runs inside somebody else process, and the only part of razves that
@@ -13,6 +17,10 @@ plugins {
 // field rather than an indexed register, and loads a PIE executable at a slide the profile has to
 // carry. The Kotlin above it is the same on both.
 kotlin {
+    // The jvm target carries the tests and no implementation: a sampler is a signal handler, and
+    // there is no such thing to offer a JVM consumer. What they get if they ask is a compile error
+    // naming `Sampler`, which is the honest answer - better than an empty class that does nothing at
+    // run time.
     jvm()
 
     // The end-to-end test parses the dump with `core` and aggregates it. A TEST dependency only:

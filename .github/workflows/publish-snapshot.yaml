@@ -41,7 +41,9 @@ jobs:
       # is how a gate stops being read. What checks the plugin instead is a consumer that applies it
       # by id - against a build-local repository in every run of SizeReportTaskTest, and against this
       # server before B-25 was closed.
-      coordinates: io.github.youndie.razves:core
+      coordinates: |
+        io.github.youndie.razves:core
+        io.github.youndie.razves:sampler
     # Named one by one rather than `secrets: inherit`: this hands them to a workflow in another
     # repository, and the two it needs are the two it gets.
     secrets:
