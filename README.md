@@ -238,9 +238,10 @@ verification addresses in [the research document](docs/research/research-archite
   1.3 MB of `tokio` and `sqlx`.
 * **The symbol table is 19–27% of the file**, in every one of the six. It is the largest single
   removable thing in a Kotlin/Native binary, and it is also exactly what razves reads.
-* **`_ZN…` is mostly Rust, not C++.** Rust's legacy mangling shares Itanium's prefix; grouping it as
-  "the Kotlin/Native runtime" misattributes about 964 KB in the subject binary, where the genuine C++
-  runtime is 14 KB.
+* **`_ZN…` is mostly Rust, not C++.** Rust's legacy mangling shares Itanium's prefix, so reading it
+  as C++ charges the Kotlin/Native runtime **1,263,149 bytes** of `tokio` and `sqlx` — **31 times**
+  the 40,871 bytes the runtime actually is, and enough to report it as the third-largest thing in the
+  binary.
 * **`nm` reports zero sizes for every Mach-O symbol.** Apple targets need an address-delta algorithm,
   not a flag.
 * **9 of 568 packages are declared by two klibs.** razves reports those as ambiguous instead of
