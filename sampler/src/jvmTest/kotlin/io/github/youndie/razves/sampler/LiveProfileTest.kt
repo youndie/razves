@@ -27,6 +27,49 @@ class LiveProfileTest {
         println("SKIPPED LiveProfileTest: no probe binary; linuxX64 is the only target that links one.")
 
     @Test
+    fun whatThePollerMissedIsCountedRatherThanQuietlyAbsent() {
+        // There is no listener in the runtime - only `GC.lastGCInfo` to ask - so a poll slower than
+        // the collection rate loses collections. That is not the defect; reporting the twelve it saw
+        // as though they were all of them would be.
+        val binary = probe ?: return skipped()
+
+        fun run(pollEvery: Int): SampleDump {
+            val dump = File.createTempFile("razves-gc", ".dump")
+            val process =
+                ProcessBuilder(binary.path, "1000", "60000", "wall", dump.path, pollEvery.toString())
+                    .redirectErrorStream(true)
+                    .start()
+            assertTrue(process.waitFor(120, TimeUnit.SECONDS), "the probe did not finish")
+            assertEquals(0, process.exitValue(), process.inputStream.bufferedReader().readText())
+            return SampleDump.parse(dump.readText(), dump.path).also { dump.delete() }
+        }
+
+        val dense = run(64)
+        val sparse = run(5_000)
+        println(
+            "gc: dense poll saw ${dense.collections.size} and missed ${dense.missedCollections}; " +
+                "sparse saw ${sparse.collections.size} and missed ${sparse.missedCollections}",
+        )
+
+        assertTrue(dense.collections.size > 50, "this workload allocates; it must collect")
+        assertEquals(0, dense.missedCollections, "a poll every 64 rounds should keep up")
+        assertTrue(sparse.missedCollections > 0, "a poll every 5,000 rounds cannot have kept up")
+        assertTrue(
+            sparse.collections.size < dense.collections.size,
+            "the sparse poll saw as many as the dense one, which would make the missed count fiction",
+        )
+        // And the arithmetic has to add up to roughly the same run: epochs are consecutive integers.
+        val sparseTotal = sparse.collections.size + sparse.missedCollections
+        assertTrue(
+            sparseTotal > dense.collections.size / 2,
+            "seen plus missed is $sparseTotal against ${dense.collections.size} collections observed densely",
+        )
+
+        val pauses = dense.collections.filter { it.pauseNs > 0 }
+        assertTrue(pauses.isNotEmpty(), "every collection reported a zero pause, which cannot be")
+    }
+
+    @Test
     fun aProgramThatSampledItselfIsNamedByRazves() {
         val binary = probe ?: return skipped()
         val dump = File.createTempFile("razves", ".dump")

@@ -35,6 +35,7 @@ public object TextProfile {
                 }
             }
             appendLine("  ${(profile.namedShare * 1000).toInt() / 10.0}% of the leaves have a name")
+            dump?.let { collector(it) }
             appendLine()
 
             table("BY ORIGIN", profile.origins, profile.samples, rows)
@@ -45,6 +46,31 @@ public object TextProfile {
                 table("BY MODULE", profile.modules, profile.samples, rows)
             }
         }
+
+    /**
+     * What the collector did while this was being sampled.
+     *
+     * **The missed count is a line rather than a footnote.** There is no listener in the runtime to
+     * subscribe to, only a last-collection to ask about, so a program polling slower than it collects
+     * loses some - and a reader dividing a pause total by a count that is short divides by the wrong
+     * number.
+     */
+    private fun StringBuilder.collector(dump: SampleDump) {
+        if (dump.collections.isEmpty() && dump.missedCollections == 0L) return
+        val pause = dump.collections.sumOf { it.pauseNs }
+        val longest = dump.collections.maxOfOrNull { it.pauseNs } ?: 0
+        appendLine(
+            "  ${group(dump.collections.size.toLong())} collections seen, " +
+                "${pause / 1_000_000}.${(pause / 100_000) % 10} ms of pause in total, " +
+                "longest ${longest / 1000} us",
+        )
+        if (dump.missedCollections > 0) {
+            appendLine(
+                "  ${group(dump.missedCollections)} collections happened between two polls and were " +
+                    "not seen - the numbers above are of what was",
+            )
+        }
+    }
 
     private fun StringBuilder.table(
         title: String,

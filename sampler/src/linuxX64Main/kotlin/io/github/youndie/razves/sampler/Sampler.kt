@@ -86,6 +86,7 @@ public object Sampler {
         binaryPath: String? = null,
         hz: Int? = null,
         clock: SamplingClock? = null,
+        extra: List<String> = emptyList(),
     ): String =
         buildString {
             appendLine("razves-samples 1")
@@ -94,6 +95,9 @@ public object Sampler {
             appendLine("dropped $dropped")
             hz?.let { appendLine("hz $it") }
             clock?.let { appendLine("clock ${it.name.lowercase()}") }
+            // Whatever else the process knows and razves cannot recover - today the collector
+            // ([GcWatch]), tomorrow whatever the next thing turns out to be.
+            extra.forEach { appendLine(it) }
             for (stack in drain()) {
                 appendLine(stack.joinToString(" ") { "0x" + it.toULong().toString(16) })
             }

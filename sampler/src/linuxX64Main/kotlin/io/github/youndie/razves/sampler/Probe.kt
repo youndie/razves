@@ -31,10 +31,13 @@ public fun main(args: Array<String>) {
     val rounds = args.getOrNull(1)?.toIntOrNull() ?: 20_000
     val clock = if (args.getOrNull(2) == "cpu") SamplingClock.CPU else SamplingClock.WALL
     val dumpPath = args.getOrNull(3)
+    // How often the collector is asked. Sparse on purpose in one of the tests: a poll that misses
+    // collections is the normal case, and the number it reports for them is what this proves.
+    val pollEvery = args.getOrNull(4)?.toIntOrNull() ?: 64
 
     if (hz > 0) Sampler.start(hz, clock)
     val start = cpuNanos()
-    val acc = work(rounds)
+    val acc = work(rounds, pollEvery = pollEvery)
     // CPU time from inside the process, so that neither process start-up nor the shell is in the
     // number the stand reads. scripts/sampling_cost.py is the only reader that cares, and it cares
     // a great deal.
@@ -45,7 +48,8 @@ public fun main(args: Array<String>) {
     // asking for the samples afterwards would report an empty one.
     val kept: Int
     if (dumpPath != null) {
-        val text = Sampler.dump(hz = hz.takeIf { it > 0 }, clock = clock)
+        GcWatch.poll()
+        val text = Sampler.dump(hz = hz.takeIf { it > 0 }, clock = clock, extra = GcWatch.lines())
         kept = text.lineSequence().count { it.startsWith("0x") }
         Sampler.writeText(dumpPath, text)
     } else {
@@ -116,12 +120,19 @@ private fun ab(args: Array<String>) {
     )
 }
 
-private fun work(rounds: Int): Long {
+private fun work(
+    rounds: Int,
+    pollEvery: Int = 0,
+): Long {
     var acc = 0L
     for (r in 0 until rounds) {
         val list = ArrayList<Int>(1024)
         for (i in 0 until 1024) list.add(i * r)
         for (v in list) acc += v.toLong() xor acc
+        // Once every so often rather than every round: the poll is two long comparisons when nothing
+        // collected, and a profile of the poller is not what anybody asked for. Sparse enough that
+        // collections ARE missed, which is the point - the count says how many.
+        if (pollEvery > 0 && r % pollEvery == 0) GcWatch.poll()
     }
     return acc
 }

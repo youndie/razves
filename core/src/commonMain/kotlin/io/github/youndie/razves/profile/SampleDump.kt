@@ -33,6 +33,16 @@ public data class SampleDump(
     val hz: Int?,
     val clock: String?,
     val stacks: List<LongArray>,
+    /** What the collector did, if the process was watching it. */
+    val collections: List<GcCollection> = emptyList(),
+    /**
+     * Collections the runtime performed that the process never saw.
+     *
+     * There is no listener in the runtime to subscribe to - only `GC.lastGCInfo` to ask - so a poll
+     * slower than the collection rate loses some, and a reader who divides by the count without this
+     * number divides by the wrong one.
+     */
+    val missedCollections: Long = 0,
 ) {
     /**
      * The rate the sampler actually achieved, if the file says enough to compute one.
@@ -72,6 +82,8 @@ public data class SampleDump(
             var hz: Int? = null
             var clock: String? = null
             val stacks = ArrayList<LongArray>()
+            val collections = ArrayList<GcCollection>()
+            var missed = 0L
 
             for (raw in lines) {
                 val line = raw.trim()
@@ -82,11 +94,13 @@ public data class SampleDump(
                     line.startsWith("dropped ") -> dropped = number(line, "dropped", path)
                     line.startsWith("hz ") -> hz = number(line, "hz", path).toInt()
                     line.startsWith("clock ") -> clock = line.removePrefix("clock ").trim()
+                    line.startsWith("gc-missed ") -> missed = number(line, "gc-missed", path)
+                    line.startsWith("gc ") -> collections += collection(line, path)
                     line.startsWith("0x") -> stacks += frames(line, path)
                     else -> error("$path has a line razves does not understand: \"$line\"")
                 }
             }
-            return SampleDump(binary, taken, dropped, hz, clock, stacks)
+            return SampleDump(binary, taken, dropped, hz, clock, stacks, collections, missed)
         }
 
         private fun number(
@@ -96,6 +110,23 @@ public data class SampleDump(
         ): Long =
             line.removePrefix("$key ").trim().toLongOrNull()
                 ?: error("$path has a $key that is not a number: \"$line\"")
+
+        /** `gc <epoch> <start> <end> <pause> <marked> <heapBefore> <heapAfter>`, all in nanoseconds and bytes. */
+        private fun collection(
+            line: String,
+            path: String,
+        ): GcCollection {
+            val parts = line.split(' ').filter { it.isNotBlank() }
+            require(parts.size == 8) {
+                "$path has a gc line with ${parts.size - 1} fields rather than 7: \"$line\""
+            }
+            val numbers =
+                LongArray(7) { i ->
+                    parts[i + 1].toLongOrNull()
+                        ?: error("$path has a gc line with a field that is not a number: \"$line\"")
+                }
+            return GcCollection(numbers[0], numbers[1], numbers[2], numbers[3], numbers[4], numbers[5], numbers[6])
+        }
 
         private fun frames(
             line: String,
@@ -111,4 +142,24 @@ public data class SampleDump(
             }
         }
     }
+}
+
+/**
+ * One collection, as `kotlin.native.runtime.GCInfo` described it to the process that was watching.
+ *
+ * The pause is both stop-the-world windows added together - a cycle has one or two, and the second is
+ * absent often enough that reporting only the first understates what the program felt.
+ */
+public data class GcCollection(
+    val epoch: Long,
+    val startTimeNs: Long,
+    val endTimeNs: Long,
+    val pauseNs: Long,
+    val markedCount: Long,
+    val heapBeforeBytes: Long,
+    val heapAfterBytes: Long,
+) {
+    val durationNs: Long get() = endTimeNs - startTimeNs
+
+    val freedBytes: Long get() = heapBeforeBytes - heapAfterBytes
 }
