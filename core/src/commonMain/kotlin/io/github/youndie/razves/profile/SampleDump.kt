@@ -33,6 +33,15 @@ public data class SampleDump(
     val hz: Int?,
     val clock: String?,
     val stacks: List<LongArray>,
+    /**
+     * How far the image was loaded from where it was linked, which is zero everywhere except Apple.
+     *
+     * A Kotlin/Native Linux executable is `ET_EXEC` and does not move; a macOS one is `MH_PIE` and the
+     * loader picks a slide. razves reads link-time addresses out of the binary and cannot know the
+     * slide; the process knew it and is gone by the time the profile is read - so it travels here,
+     * and [stacks] are already relative to the binary.
+     */
+    val slide: Long = 0,
     /** What the collector did, if the process was watching it. */
     val collections: List<GcCollection> = emptyList(),
     /**
@@ -84,6 +93,7 @@ public data class SampleDump(
             val stacks = ArrayList<LongArray>()
             val collections = ArrayList<GcCollection>()
             var missed = 0L
+            var slide = 0L
 
             for (raw in lines) {
                 val line = raw.trim()
@@ -94,13 +104,29 @@ public data class SampleDump(
                     line.startsWith("dropped ") -> dropped = number(line, "dropped", path)
                     line.startsWith("hz ") -> hz = number(line, "hz", path).toInt()
                     line.startsWith("clock ") -> clock = line.removePrefix("clock ").trim()
+                    line.startsWith("slide ") -> slide = number(line, "slide", path)
                     line.startsWith("gc-missed ") -> missed = number(line, "gc-missed", path)
                     line.startsWith("gc ") -> collections += collection(line, path)
                     line.startsWith("0x") -> stacks += frames(line, path)
                     else -> error("$path has a line razves does not understand: \"$line\"")
                 }
             }
-            return SampleDump(binary, taken, dropped, hz, clock, stacks, collections, missed)
+            // Subtracted once, here, rather than by every reader: a stack that reached razves in
+            // runtime addresses and a stack that reached it in link-time ones look identical, and
+            // the one that was not corrected resolves to nothing at all.
+            val corrected =
+                if (slide == 0L) stacks else stacks.map { frames -> LongArray(frames.size) { frames[it] - slide } }
+            return SampleDump(
+                binary = binary,
+                taken = taken,
+                dropped = dropped,
+                hz = hz,
+                clock = clock,
+                stacks = corrected,
+                slide = slide,
+                collections = collections,
+                missedCollections = missed,
+            )
         }
 
         private fun number(

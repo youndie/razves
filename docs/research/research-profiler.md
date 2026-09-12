@@ -368,6 +368,14 @@ so **the cost is not linear in the delivered rate**, the per-sample figure is no
 measurement at a high rate can be scaled down to 100 Hz. The spike's 3 µs came from dividing one
 noisy difference by a sample count, which assumed exactly the linearity these two rows deny.
 
+**§2 and risk 5 said "Linux only", and that is no longer true.** The Apple half landed in
+[B-36](../backlog/B-36-apple-sampler.md): `setitimer` in place of the POSIX timers that do not exist
+there, the program counter read from `uc_mcontext->__ss.__pc` rather than from an indexed register,
+and the `MH_PIE` slide - 13,631,488 in one measured run - carried in the dump because only the
+process knows it. The same program profiled on both resolves to the same package names; the shares
+differ because macOS links libsystem dynamically and the Linux build does not, which razves reports
+as `<outside the binary>` at 16.4% against 1.4%.
+
 **§1.1's failure table is now a test rather than a table**, and the live path found what it could
 not: `backtrace()` called from inside the handler returns the handler as frame 0 and the kernel
 trampoline as frame 1, so every sample in every profile had the same leaf until

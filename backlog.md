@@ -38,15 +38,14 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (3)
+## Open (2)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-36](docs/backlog/B-36-apple-sampler.md) `[ ]` | The Apple half: no POSIX timer, a different context, a sliding image | P2 | M | B-30 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (34)
+## Closed (35)
 
 **Read the file, and prove you read all of it**
 
@@ -95,6 +94,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-33](docs/backlog/B-33-pprof-writer.md) `[x]` - Write pprof, so existing viewers work
 - [B-34](docs/backlog/B-34-gc-statistics.md) `[x]` - Garbage collection, by polling, saying what it missed
 - [B-35](docs/backlog/B-35-mcp-interface.md) `[x]` - MCP as the second interface, in tracy's shape
+- [B-36](docs/backlog/B-36-apple-sampler.md) `[x]` - The Apple half: no POSIX timer, a different context, a sliding image
 - [B-37](docs/backlog/B-37-profile-command.md) `[x]` - razves profile: the live path from a sampled process to a file
 
 <!-- END INDEX -->

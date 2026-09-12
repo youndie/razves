@@ -2,6 +2,7 @@ package io.github.youndie.razves.sampler
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.convert
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import platform.posix.CLOCK_PROCESS_CPUTIME_ID
@@ -66,7 +67,9 @@ public fun main(args: Array<String>) {
 private fun cpuNanos(): Long =
     memScoped {
         val ts = alloc<timespec>()
-        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, ts.ptr)
+        // convert() rather than a literal: clockid_t is an Int on Linux and a UInt on Apple, and the
+        // binding is faithful to each.
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID.convert(), ts.ptr)
         ts.tv_sec * 1_000_000_000L + ts.tv_nsec
     }
 

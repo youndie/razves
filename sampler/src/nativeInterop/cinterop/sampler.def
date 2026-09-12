@@ -14,10 +14,18 @@ linkerOpts.linux = -lrt
 // So nothing below touches Kotlin, allocates, takes a lock, or calls anything that is not on the
 // async-signal-safe list. What it does is write one stack into a fixed ring and advance a counter.
 
+#ifdef __APPLE__
+// macOS hides ucontext_t behind _XOPEN_SOURCE, and hides the deprecation warning behind another one.
+#define _XOPEN_SOURCE 700
+#define _DARWIN_C_SOURCE 1
+#include <mach-o/dyld.h>
+#else
 #define _GNU_SOURCE 1
+#include <time.h>
+#endif
+
 #include <signal.h>
 #include <sys/time.h>
-#include <time.h>
 #include <ucontext.h>
 #include <stdint.h>
 #include <string.h>
@@ -37,7 +45,11 @@ static volatile uint64_t razves_taken = 0;
 static volatile uint64_t razves_dropped = 0;
 static volatile uint64_t razves_read = 0;
 
+#ifndef __APPLE__
+// A POSIX timer handle, and only where POSIX timers exist. On Apple the type itself is absent, which
+// is a sharper way of saying the same thing the research measured: timer_create is not there.
 static timer_t razves_timer;
+#endif
 static int razves_armed = 0;
 
 // THE LEAF IS THE INTERRUPTED INSTRUCTION, NOT THE HANDLER.
@@ -69,7 +81,15 @@ static void razves_handler(int sig, siginfo_t *info, void *ctx) {
     uint32_t depth = 0;
     ucontext_t *uc = (ucontext_t *) ctx;
     if (uc != NULL) {
-        razves_frames[slot][depth++] = (uint64_t) uc->uc_mcontext.gregs[REG_RIP];
+        // THE INTERRUPTED PROGRAM COUNTER, and it is in a different place on every platform.
+        // On x86-64 Linux it is a register in an array whose index is REG_RIP - not exported by the
+        // Kotlin binding, so the number is written out. On arm64 Apple it is a named field of a
+        // struct reached through a pointer.
+#ifdef __APPLE__
+        razves_frames[slot][depth++] = (uint64_t) uc->uc_mcontext->__ss.__pc;
+#else
+        razves_frames[slot][depth++] = (uint64_t) uc->uc_mcontext.gregs[16];
+#endif
     }
     // And the walked frames may repeat it: on this unwinder buf[RAZVES_SKIP] IS the interrupted
     // function, at the same address the context carries. Dropping the duplicate rather than skipping
@@ -108,6 +128,21 @@ static int razves_start(int hz, int clock) {
     sigemptyset(&sa.sa_mask);
     if (sigaction(SIGPROF, &sa, NULL) != 0) return -3;
 
+#ifdef __APPLE__
+    // NO POSIX TIMERS HERE. `timer_create` and `timer_settime` are absent from platform.posix on
+    // macos_arm64 and present on linux_x64 - read out of the klib metadata before a line of this was
+    // written. What is left is setitimer, whose interval timers are per process: ITIMER_PROF counts
+    // CPU time and ITIMER_REAL wall time, which is the same pair of questions the Linux side answers
+    // with two clocks.
+    //
+    // ITIMER_REAL raises SIGALRM rather than SIGPROF, so the handler is installed on both.
+    if (clock != 1 && sigaction(SIGALRM, &sa, NULL) != 0) return -6;
+    struct itimerval every;
+    memset(&every, 0, sizeof(every));
+    every.it_interval.tv_usec = 1000000 / hz;
+    every.it_value = every.it_interval;
+    if (setitimer(clock == 1 ? ITIMER_PROF : ITIMER_REAL, &every, NULL) != 0) return -4;
+#else
     struct sigevent sev;
     memset(&sev, 0, sizeof(sev));
     sev.sigev_notify = SIGEV_SIGNAL;
@@ -121,6 +156,7 @@ static int razves_start(int hz, int clock) {
     its.it_interval.tv_nsec = ns % 1000000000L;
     its.it_value = its.it_interval;
     if (timer_settime(razves_timer, 0, &its, NULL) != 0) return -5;
+#endif
     razves_armed = 1;
     return 0;
 }
@@ -129,12 +165,33 @@ static int razves_start(int hz, int clock) {
 // delete a timer that is no longer there.
 static void razves_stop(void) {
     if (!razves_armed) return;
+#ifdef __APPLE__
+    struct itimerval off;
+    memset(&off, 0, sizeof(off));
+    setitimer(ITIMER_PROF, &off, NULL);
+    setitimer(ITIMER_REAL, &off, NULL);
+    signal(SIGALRM, SIG_IGN);
+#else
     struct itimerspec off;
     memset(&off, 0, sizeof(off));
     timer_settime(razves_timer, 0, &off, NULL);
     timer_delete(razves_timer);
+#endif
     signal(SIGPROF, SIG_IGN);
     razves_armed = 0;
+}
+
+// WHERE THIS IMAGE WAS LOADED, and the two platforms answer differently because they are built
+// differently. An Apple executable is MH_PIE, so a sampled address is the link-time one plus a slide
+// chosen at load: razves knows the link-time addresses and cannot know the slide, this process knows
+// the slide and will not be there when the profile is read, so it travels in the dump. A
+// Kotlin/Native Linux executable is ET_EXEC - measured - and nothing moves.
+static uint64_t razves_image_slide(void) {
+#ifdef __APPLE__
+    return (uint64_t) _dyld_get_image_vmaddr_slide(0);
+#else
+    return 0;
+#endif
 }
 
 static uint64_t razves_taken_count(void) { return razves_taken; }

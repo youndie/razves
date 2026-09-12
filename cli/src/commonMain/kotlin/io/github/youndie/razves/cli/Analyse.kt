@@ -6,9 +6,7 @@ import io.github.youndie.razves.profile.Pprof
 import io.github.youndie.razves.profile.Profiling
 import io.github.youndie.razves.profile.SampleDump
 import io.github.youndie.razves.profile.TextProfile
-import io.github.youndie.razves.read.BinaryImage
-import io.github.youndie.razves.read.ElfReader
-import io.github.youndie.razves.read.MachOReader
+import io.github.youndie.razves.read.Binaries
 import io.github.youndie.razves.report.Attribution
 import io.github.youndie.razves.report.DiffDocument
 import io.github.youndie.razves.report.ReportDocument
@@ -39,7 +37,7 @@ public object Analyse {
         rows: Int,
     ): String {
         require(Files.exists(binaryPath)) { "$binaryPath does not exist" }
-        val image = read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
+        val image = Binaries.read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
         val klibs = klibRoots.flatMap { readKlibs(it) }
         val document = ReportDocument.of(Attribution.report(image, klibs = klibs.ifEmpty { null }))
         return when (format) {
@@ -75,7 +73,7 @@ public object Analyse {
         require(Files.exists(binaryPath)) { "$binaryPath does not exist" }
         require(Files.exists(dumpPath)) { "$dumpPath does not exist" }
         val dump = SampleDump.parse(Files.read(dumpPath).decodeToString(), dumpPath)
-        val image = read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
+        val image = Binaries.read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
         val klibs = klibRoots.flatMap { readKlibs(it) }
         return Pprof.of(
             image = image,
@@ -94,7 +92,7 @@ public object Analyse {
         require(Files.exists(dumpPath)) { "$dumpPath does not exist" }
         require(Files.exists(binaryPath)) { "$binaryPath does not exist" }
         val dump = SampleDump.parse(Files.read(dumpPath).decodeToString(), dumpPath)
-        val image = read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
+        val image = Binaries.read(Files.read(binaryPath), binaryPath.substringAfterLast('/'))
         val klibs = klibRoots.flatMap { readKlibs(it) }
         return dump to
             Profiling.of(
@@ -155,16 +153,6 @@ public object Analyse {
         }
         return document
     }
-
-    private fun read(
-        data: ByteArray,
-        name: String,
-    ): BinaryImage =
-        when {
-            ElfReader.matches(data) -> ElfReader.read(data, name)
-            MachOReader.matches(data) -> MachOReader.read(data, name)
-            else -> error("$name is neither an ELF nor a 64-bit Mach-O file; razves reads those two")
-        }
 
     /**
      * Every klib under a root, in both of the shapes one comes in.

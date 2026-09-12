@@ -7,6 +7,7 @@ import platform.posix.fputs
 import razves.sampler.native.razves_depth_at
 import razves.sampler.native.razves_dropped_count
 import razves.sampler.native.razves_frame_at
+import razves.sampler.native.razves_image_slide
 import razves.sampler.native.razves_is_armed
 import razves.sampler.native.razves_mark_read
 import razves.sampler.native.razves_slots
@@ -42,6 +43,16 @@ public object Sampler {
     public val capacity: Long get() = razves_slots().toLong()
 
     public val armed: Boolean get() = razves_is_armed() != 0
+
+    /**
+     * How far this image was loaded from where it was linked.
+     *
+     * Zero on Linux, where a Kotlin/Native executable is `ET_EXEC` and nothing moves. On Apple targets
+     * the binary is `MH_PIE` and the loader picks a slide: razves knows the link-time addresses and
+     * cannot know the slide, this process knows the slide and will not be there when the profile is
+     * read - so it goes in the dump and razves subtracts it.
+     */
+    public val imageSlide: Long get() = razves_image_slide().toLong()
 
     /** Signals delivered since the process started, dropped ones included. */
     public val taken: Long get() = razves_taken_count().toLong()
@@ -91,6 +102,7 @@ public object Sampler {
         buildString {
             appendLine("razves-samples 1")
             binaryPath?.let { appendLine("binary $it") }
+            appendLine("slide $imageSlide")
             appendLine("taken $taken")
             appendLine("dropped $dropped")
             hz?.let { appendLine("hz $it") }
