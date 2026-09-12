@@ -4,6 +4,9 @@ kotlin = "2.4.10"
 kotlinx-serialization = "1.11.0"
 kotlinx-io = "0.9.1"
 clikt = "5.1.0"
+# The MCP SDK, at the version the portfolio already runs in tracy.
+mcpSdk = "0.15.0"
+kotlinx-coroutines = "1.10.2"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -12,6 +15,8 @@ kotlinx-io = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "
 # `kfun:com.github.ajalt.clikt.core#selfAndAncestors…` - which ld.lld refuses outright on a native
 # link. razves reports the same pair as an ambiguous package before the linker ever sees it.
 clikt = { module = "com.github.ajalt.clikt:clikt-core", version.ref = "clikt" }
+mcp-server = { module = "io.modelcontextprotocol:kotlin-sdk-server", version.ref = "mcpSdk" }
+kotlinx-coroutines = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 
 [plugins]

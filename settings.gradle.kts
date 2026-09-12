@@ -34,6 +34,10 @@ include(":cli")
 // module and not a package inside `core`, and why nothing else depends on it.
 include(":sampler")
 
+// The same answers over MCP, and a separate binary because of what the SDK weighs: measured at
+// +3,633,704 bytes when it was a subcommand of `razves`, which is more than the tool itself.
+include(":mcp")
+
 // The gate. Its one irreplaceable job is supplying the link classpath: a directory sweep picks up
 // transformed copies of a dependency and makes every package it declares look declared twice.
 include(":gradle-plugin")
