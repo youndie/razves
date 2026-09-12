@@ -18,6 +18,32 @@ on:
   workflow_dispatch:
 
 jobs:
+  # THE CODE, on a runner that has what its oracles need.
+  #
+  # Until this existed the Kotlin tests ran nowhere except inside the publish job, and when that job
+  # moved to a mac - it has to, or a cinterop target goes unbuilt - the pprof oracle found no Go and
+  # refused, which is what it was told to do. A check that only runs where somebody happens to be
+  # publishing is a check nobody can rely on, so it runs here, on every push and every pull request.
+  #
+  # Go is installed deliberately rather than inherited from the image: the one test that proves a
+  # real reader accepts what razves writes needs `go tool pprof`, and a toolchain that is there by
+  # luck is a toolchain that leaves one day without telling anybody.
+  build:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+        with:
+          konan-cache: true
+
+      - run: ./gradlew build --no-daemon
+
   # The gate. Exactly the target a contributor runs: a local check set that differs from the CI one
   # turns "green here, red there" into the normal state of affairs, and then neither is read.
   check:

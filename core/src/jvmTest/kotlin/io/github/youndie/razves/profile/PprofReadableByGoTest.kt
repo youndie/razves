@@ -38,9 +38,16 @@ class PprofReadableByGoTest {
      * held. On CI there is no excuse for a missing toolchain, so there it fails instead.
      */
     private fun skipped() {
-        check(System.getenv("CI") != "true") {
-            "go is not on PATH on CI, so the only check that a real reader accepts what razves writes " +
-                "did not run. Install Go in the workflow rather than letting this pass silently."
+        // Fails where the toolchain is promised and skips where it is not, which is a narrower claim
+        // than the first version made and a true one. The promise is `check.yaml`: a Linux job that
+        // installs Go deliberately. The publish job runs on a mac - it has to, or a cinterop target
+        // goes unbuilt - and nothing there undertakes to have Go, so demanding it there turned a
+        // green publish into a red one for the wrong reason.
+        val linuxCi = System.getenv("CI") == "true" && System.getProperty("os.name").equals("Linux", true)
+        check(!linuxCi) {
+            "go is not on PATH on a Linux CI runner, so the only check that a real reader accepts " +
+                "what razves writes did not run. check.yaml installs it; if that step is gone, this " +
+                "is why it mattered."
         }
         println("SKIPPED PprofReadableByGoTest: go is not on PATH, so pprof cannot be asked.")
     }
