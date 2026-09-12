@@ -159,10 +159,20 @@ The pprof file opens in `go tool pprof` and the browser profilers, with Kotlin n
 `kfun:` ones. There is also `razves-mcp`, the same answers over MCP on stdio, read-only: it cannot
 sample anything, deliberately.
 
-**The sampler is not published yet** — `core`, the Gradle plugin and its marker are, and the
-in-process half is built from this repository until
-[B-38](docs/backlog/B-38-publish-the-sampler.md) lands. It is the one artefact a consumer has to
-link, so that gap is named rather than left to be discovered.
+The sampler is published like everything else — four coordinates, because a cinterop klib is made
+per target:
+
+```kotlin
+// build.gradle.kts of the program you want to profile
+kotlin {
+    sourceSets.nativeMain.dependencies {
+        implementation("io.github.youndie.razves:sampler:0.1.0.28")
+    }
+}
+```
+
+A project that had never seen this repository linked that, sampled itself for 2,662 samples, and
+razves named 99.3% of its leaves.
 
 ### 🚦 The gate is the point
 

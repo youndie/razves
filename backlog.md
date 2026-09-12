@@ -38,15 +38,14 @@ layer, so re-prioritising an item must never move its file.
 
 <!-- BEGIN INDEX -->
 
-## Open (3)
+## Open (2)
 
 | Task | | Priority | Size | Blocked by |
 |---|---|---|---|---|
-| [B-38](docs/backlog/B-38-publish-the-sampler.md) `[ ]` | Publish the sampler, which is the one artefact a consumer has to link | P2 | S | B-36 |
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (35)
+## Closed (36)
 
 **Read the file, and prove you read all of it**
 
@@ -97,6 +96,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-35](docs/backlog/B-35-mcp-interface.md) `[x]` - MCP as the second interface, in tracy's shape
 - [B-36](docs/backlog/B-36-apple-sampler.md) `[x]` - The Apple half: no POSIX timer, a different context, a sliding image
 - [B-37](docs/backlog/B-37-profile-command.md) `[x]` - razves profile: the live path from a sampled process to a file
+- [B-38](docs/backlog/B-38-publish-the-sampler.md) `[x]` - Publish the sampler, which is the one artefact a consumer has to link
 
 <!-- END INDEX -->
 
