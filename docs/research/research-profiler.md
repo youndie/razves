@@ -360,5 +360,17 @@ profile exists in a branch here.
 
 ## 6. Corrections found while implementing
 
-*(Nothing yet. This section is where a fact above gets amended when the code disagrees with it, and
-it is the reason the document stays rather than being thrown away after the first sprint.)*
+**§1.4's upper bound of "about 3 µs per sample" is withdrawn.** A stand built for the question
+([B-29](../backlog/B-29-sampling-cost-stand.md)) - both halves of each pair in one process, pinned to
+a core, alternating order, climbing a ladder of deliberate costs until it can see one - measured
++6.59% at 7,216 Hz and +7.22% at 17,944 Hz. The rate rose two and a half times and the cost did not,
+so **the cost is not linear in the delivered rate**, the per-sample figure is not a constant, and no
+measurement at a high rate can be scaled down to 100 Hz. The spike's 3 µs came from dividing one
+noisy difference by a sample count, which assumed exactly the linearity these two rows deny.
+
+**§1.1's failure table is now a test rather than a table**, and the live path found what it could
+not: `backtrace()` called from inside the handler returns the handler as frame 0 and the kernel
+trampoline as frame 1, so every sample in every profile had the same leaf until
+[B-37](../backlog/B-37-profile-command.md). razves reported one C function as 100% of a workload that
+is mostly Kotlin, and every unit test passed while it did - they all handed the aggregation stacks a
+test had made up.
