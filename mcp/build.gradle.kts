@@ -29,14 +29,18 @@ kotlin {
 // The tests speak to the binary rather than to the object, because two of the three defects found
 // while writing this were about the process: the SDK logging into the protocol channel, and a
 // transport that is already started by the session.
-val mcpLink = tasks.matching { it.name == "linkReleaseExecutableLinuxX64" }
+// THE HOST TARGET, not a fixed one - the same lesson the sampler module learned first. A mac handed
+// the linuxX64 binary answers "cannot execute binary file", and the test that did not read stderr
+// reported it as "Stream closed" from half a continent away.
+val hostTarget = if (System.getProperty("os.name").startsWith("Mac")) "MacosArm64" else "LinuxX64"
+val mcpLink = tasks.matching { it.name == "linkReleaseExecutable$hostTarget" }
 
 tasks.named<Test>("jvmTest") {
     dependsOn(mcpLink)
     systemProperty(
         "RAZVES_MCP",
         layout.buildDirectory
-            .file("bin/linuxX64/releaseExecutable/mcp.kexe")
+            .file("bin/${hostTarget.replaceFirstChar { it.lowercase() }}/releaseExecutable/mcp.kexe")
             .get()
             .asFile.path,
     )

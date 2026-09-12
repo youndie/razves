@@ -22,12 +22,24 @@ class McpOverStdioTest {
 
     private fun ask(vararg lines: String): List<String> {
         val server = binary ?: error("no binary")
-        val process = ProcessBuilder(server.path).start()
-        process.outputStream.bufferedWriter().use { writer ->
-            lines.forEach { writer.write(it + "\n") }
+        // Stderr into a file rather than into the void. The first CI run of this on a mac failed with
+        // "Stream closed" - the server had already exited when the test wrote to it - and the reason
+        // was on a stream nobody was reading. A test that cannot say why it failed costs a whole run
+        // to learn one line.
+        val noise = File.createTempFile("razves-mcp", ".err")
+        val process = ProcessBuilder(server.path).redirectError(noise).start()
+        val complaint = { "razves-mcp said on stderr:\n" + noise.readText().take(2000) }
+        try {
+            process.outputStream.bufferedWriter().use { writer ->
+                lines.forEach { writer.write(it + "\n") }
+            }
+        } catch (e: java.io.IOException) {
+            throw AssertionError("could not write to razves-mcp (${e.message}). " + complaint())
         }
         val out = process.inputStream.bufferedReader().readText()
         assertTrue(process.waitFor(120, TimeUnit.SECONDS), "razves-mcp did not exit when its client did")
+        if (out.isBlank()) throw AssertionError("razves-mcp answered nothing. " + complaint())
+        noise.delete()
         return out.lines().filter { it.isNotBlank() }
     }
 

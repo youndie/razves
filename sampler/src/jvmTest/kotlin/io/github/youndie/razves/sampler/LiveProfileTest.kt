@@ -1,5 +1,6 @@
 package io.github.youndie.razves.sampler
 
+import io.github.youndie.razves.profile.Profile
 import io.github.youndie.razves.profile.Profiling
 import io.github.youndie.razves.profile.SampleDump
 import io.github.youndie.razves.read.Binaries
@@ -102,12 +103,20 @@ class LiveProfileTest {
 
         assertTrue(parsed.stacks.size > 100, "only ${parsed.stacks.size} samples came back")
         assertEquals(parsed.stacks.size.toLong(), profile.samples)
-        // Lower than it looks it should be, and the reason is the platform rather than razves: on
-        // Apple targets libsystem is dynamically linked, so the allocator frames are OUTSIDE the
-        // image and razves can only say so. Measured on the same program: 99.1% named on linuxX64
-        // against 83.5% on macosArm64, where the difference is almost exactly the `outside the
-        // binary` row.
-        assertTrue(profile.namedShare > 0.8, "only ${profile.namedShare} of the leaves had a name")
+        // NOT a threshold on the named share, which is what this was and what a second machine
+        // refused: 83.5% on one mac, 76.6% on a CI mac, 99.1% on Linux. That number measures how much
+        // of the program lives outside the image - libsystem is dynamically linked on Apple targets
+        // and statically present on this Linux build - which is a fact about the platform rather than
+        // about razves.
+        //
+        // What razves is answerable for is the other kind of miss: an address INSIDE the image that
+        // no symbol covers. That one is razves failing to name something, and it stays small
+        // everywhere.
+        val unnamedInside = profile.origins.singleOrNull { it.name == Profile.NO_SYMBOL }?.self ?: 0
+        assertTrue(
+            unnamedInside < profile.samples / 20,
+            "$unnamedInside of ${profile.samples} leaves are inside the binary and unnamed",
+        )
 
         // What the probe spends its time on is an ArrayList of boxed ints, so `kotlin.collections`
         // has to be executing - not merely on the stack.
