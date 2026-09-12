@@ -27,6 +27,19 @@ jobs:
       # Kotlin/Native targets in every module. Without the cache every run downloads a compiler
       # distribution before it does anything.
       konan-cache: true
+
+      # A MAC, AND THAT IS FORCED RATHER THAN PREFERRED. A multiplatform module publishes its root and
+      # every target from ONE host, or the root names variants nobody built - which is exactly what
+      # happened on the first publish of `:sampler`: a Linux runner SKIPS cinteropSamplerMacosArm64,
+      # the root went up naming a macosArm64 variant, and proba answered 404 for it. A klib
+      # cross-compiles; a cinterop against the Apple SDK does not.
+      #
+      # Measured the other way round too: a mac builds cinteropSamplerLinuxX64 and its klib. So one
+      # host can publish all of it, and it is this one.
+      #
+      # Standard macOS runners are free for public repositories. The charged ones are the larger
+      # labels, and the difference is visible in the name.
+      runner: macos-latest
       # One Linux host publishes all of it, macosArm64 included: `core` has no cinterop, so its
       # Apple klib cross-compiles. What cannot cross-compile is a Mach-O *executable*, and the two
       # modules that link one - `cli` and `fixture` - publish nothing.
