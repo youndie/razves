@@ -55,6 +55,7 @@ What it deliberately does **not** do: any attribution of its own. Everything int
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` | the extension, its defaults, and the guard that keeps every Kotlin type out of the plugin class |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/NativeBinaries.kt` | task registration and naming, wiring to the link tasks, and the klib set they were linked against |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/BinarySizeExtension.kt` | the DSL and its units |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeRules.kt` | the two rules, and why there is a set of them per build type |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeReportTask.kt` | inputs, outputs, cacheability |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeBudgetCheckTask.kt` | the comparison and the failure message |
 | `gradle-plugin/src/test/kotlin/io/github/youndie/razves/gradle/` | TestKit builds |
@@ -92,6 +93,20 @@ same way.
 the plugin block, so the registration has to be driven by the target container's `all { }` rather
 than by a single pass once evaluation is done.
 
+**A rule is per build type, and the unqualified one is the release binary's.** `binarySize.budget`
+used to apply to every `Executable`, which made it the debug binary's number by force: the debug and
+release binaries of one module measured 28,580,560 and 9,227,448 bytes at the same commit, so the
+only ceiling both fit is one three times what ships. razves picks the rules by
+`Executable.buildType` and leaves `debug { }` empty unless somebody fills it
+([B-40](../backlog/B-40-budget-per-build-type.md)). Nothing is inherited into that block, because an
+inherited ceiling would be the release number and no debug binary has ever fitted it.
+
+**A gate with no rule prints that it checked nothing.** Otherwise it is the same green task as a
+gate whose rule passed, and that is how a binary nobody gated is read for a year as a binary under
+budget. The sentence is built in `core`, which knows nothing about Gradle, out of a hint string the
+plugin supplies — the plugin is the half that knows whether `debug { }` or the outer block is the
+one to name.
+
 **The gate is a separate task from the report.** The report is useful on its own and should not
 fail a build; the gate is what fails it. Splitting them also keeps the report's output an input of
 the gate, which is what makes the gate cacheable.
@@ -121,8 +136,9 @@ Published to the Gradle Plugin Portal and Maven Central. Version line and publis
 
 | Key | Description | Required |
 |---|---|---|
-| `binarySize.budget` | absolute ceiling | no |
-| `binarySize.deltaPerChange` | growth against the committed baseline | no |
+| `binarySize.budget` | absolute ceiling, on the **release** binary | no |
+| `binarySize.deltaPerChange` | growth against the committed baseline, on the **release** binary | no |
+| `binarySize.debug { }` | the same two rules for the debug binaries; absent means they are ungated | no |
 | `binarySize.measure` | `Measure.FILE_SIZE` (default) or `Measure.ALLOCATED` | no |
 | `binarySize.baseline` | baseline file location | no |
 | `razves.skip` | Gradle property; disables the gate and logs that it did | no |
@@ -145,3 +161,7 @@ Do not copy the full list here as it grows — the extension class is the source
   of the task that writes the new one, which is a loud migration rather than a silent one.
 * **`razves.skip` must log.** A silent bypass property becomes the repository's default state
   within a quarter and nobody remembers it is set.
+* **Upgrading past [B-40](../backlog/B-40-budget-per-build-type.md) removes a debug gate that was
+  there before.** A repository that had set `budget` for its debug binary keeps the number and loses
+  the binary it was checking; the gate's own "nothing was checked" line is the notice, and moving the
+  number into `debug { }` is the migration.

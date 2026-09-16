@@ -4,6 +4,7 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.Executable
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 
 /**
  * Every task razves registers, and the only place that names a Kotlin Gradle Plugin type.
@@ -117,6 +118,16 @@ internal object NativeBinaries {
             task.text.set(reports.map { it.file("${binary.name}-diff.txt") })
         }
 
+        // WHICH RULES APPLY TO THIS BINARY IS DECIDED BY ITS BUILD TYPE, and the debug ones are empty
+        // until somebody asks for them. A debug binary is not a bigger version of the one that ships,
+        // it is a different order of size - 28,580,560 against 9,227,448 for the same module at the
+        // same commit - and only the release one is ever staged into an image. One number covering
+        // both has to clear the debug figure, and a ceiling that admits 28.6 MB has stopped watching
+        // the 9.2 MB artefact: it could triple before the build went red. So the number written
+        // without a thought is spent on what ships, and debug is opted into through `debug { }`.
+        val rules = if (binary.buildType == NativeBuildType.DEBUG) extension.debug else extension
+        val hint = if (binary.buildType == NativeBuildType.DEBUG) DEBUG_HINT else RELEASE_HINT
+
         val gate =
             project.tasks.register(taskName("sizeBudgetCheck", binary), SizeBudgetCheckTask::class.java) { task ->
                 task.enabled = linkable.get()
@@ -124,8 +135,9 @@ internal object NativeBinaries {
                 task.description = "Fail the build if $target's ${binary.name} is over budget or grew too much."
                 task.report.set(report.flatMap { it.json })
                 task.baseline.fileProvider(baseline.map { it.asFile }.filter { it.isFile })
-                task.budget.set(extension.budget)
-                task.deltaPerChange.set(extension.deltaPerChange)
+                task.budget.set(rules.budget)
+                task.deltaPerChange.set(rules.deltaPerChange)
+                task.rulesHint.set(hint)
                 task.measure.set(extension.measure)
                 task.baselineTaskName.set(baselineTaskName)
                 task.rows.set(extension.rows)
@@ -146,6 +158,10 @@ internal object NativeBinaries {
         // razves to a module that happens not to have one.
         project.tasks.matching { it.name == "check" }.configureEach { it.dependsOn(gate) }
     }
+
+    /** What to write to give this binary a rule, printed by a gate that has none to apply. */
+    private const val DEBUG_HINT = "binarySize { debug { budget = 40.MiB } }"
+    private const val RELEASE_HINT = "binarySize { budget = 25.MiB }"
 
     /** `sizeReportLinuxX64DebugExecutable`: the pair that names a binary in KGP, in razves' spelling. */
     private fun taskName(

@@ -33,6 +33,7 @@ class BudgetTest {
         deltaFraction = deltaFraction,
         measure = measure,
         baselineTaskName = "sizeBaselineWriteLinuxX64DebugExecutable",
+        rulesHint = "binarySize { debug { budget = 40.MiB } }",
     )
 
     @Test
@@ -136,6 +137,31 @@ class BudgetTest {
         // not an oversight, and it passes.
         val verdict = Budget.check(request())
         assertFalse(verdict.breached)
+    }
+
+    @Test
+    fun aBinaryWithNoRuleSaysThatNothingWasCheckedAndHowToGiveItOne() {
+        // The other half of the same decision, and the half that keeps it honest. "passed" and
+        // "there was nothing to pass" are the same green task in a build log, which is how a debug
+        // binary that nobody gated gets read for a year as a debug binary that is under budget. The
+        // sentence has to name the absence, and then name the block that ends it - a refusal that
+        // does not say what to do instead is only an obstacle.
+        val verdict = Budget.check(request())
+
+        assertFalse(verdict.breached)
+        assertTrue("nothing was checked" in verdict.message, verdict.message)
+        assertTrue("binarySize { debug { budget" in verdict.message, verdict.message)
+        assertFalse("under a budget of" in verdict.message, "there is no budget to be under")
+    }
+
+    @Test
+    fun aRuleThatPassesDoesNotClaimThereWasNoRule() {
+        // The inverse, so the sentence above cannot be printed by everything.
+        val report = document("kfun:alpha.one#internal")
+
+        val message = Budget.check(request(report, budgetBytes = report.fileSize * 2)).message
+
+        assertFalse("nothing was checked" in message, message)
     }
 
     @Test

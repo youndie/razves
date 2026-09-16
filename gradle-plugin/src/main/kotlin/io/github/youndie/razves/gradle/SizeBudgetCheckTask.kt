@@ -49,6 +49,17 @@ public abstract class SizeBudgetCheckTask : DefaultTask() {
     @get:Optional
     public abstract val deltaPerChange: Property<Double>
 
+    /**
+     * The DSL a reader would write to give this binary a rule, printed only when it has none.
+     *
+     * The plugin knows which block that is - a debug binary is ungated until `debug { }` says
+     * otherwise - and `core` deliberately knows nothing about Gradle, so the sentence is assembled
+     * there from a string supplied here.
+     */
+    @get:Input
+    @get:Optional
+    public abstract val rulesHint: Property<String>
+
     @get:Input
     public abstract val measure: Property<Measure>
 
@@ -91,6 +102,7 @@ public abstract class SizeBudgetCheckTask : DefaultTask() {
                     deltaFraction = deltaPerChange.orNull,
                     measure = measure.get(),
                     baselineTaskName = baselineTaskName.get(),
+                    rulesHint = rulesHint.orNull,
                     rows = rows.get(),
                 ),
             )

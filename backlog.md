@@ -45,7 +45,7 @@ layer, so re-prioritising an item must never move its file.
 | [B-19](docs/backlog/B-19-full-fqn-module-map.md) `[ ]` | Resolve ambiguous packages with a full declaration-to-module map | P3 | L | B-08 |
 | [B-23](docs/backlog/B-23-size-lines-in-the-subjects.md) `[ ]` | Give each subject repository a generated size line | P3 | S | B-17 |
 
-## Closed (37)
+## Closed (38)
 
 **Read the file, and prove you read all of it**
 
@@ -79,6 +79,7 @@ layer, so re-prioritising an item must never move its file.
 - [B-27](docs/backlog/B-27-cli-diff.md) `[x]` - razves diff in the CLI, against a report the plugin wrote
 - [B-28](docs/backlog/B-28-apply-without-kgp.md) `[x]` - Applying razves without the Kotlin Gradle Plugin should do nothing, not crash
 - [B-39](docs/backlog/B-39-target-in-the-task-names.md) `[x]` - A module with two native targets must configure: the target belongs in the task names
+- [B-40](docs/backlog/B-40-budget-per-build-type.md) `[x]` - A budget is the release binary's, because the release binary is the one that ships
 
 **Point it at real binaries and publish what it says**
 

@@ -264,6 +264,11 @@ class SizeReportTaskTest {
         assertTrue("over its size budget" in result.output)
         assertTrue("over by:" in result.output)
         assertTrue("The largest things in it:" in result.output, "a ceiling can be breached on the first build")
+        assertEquals(
+            TaskOutcome.FAILED,
+            result.task(":$RELEASE_GATE")?.outcome,
+            "the ceiling is the release binary's, because the release binary is the one that ships",
+        )
     }
 
     @Test
@@ -273,14 +278,71 @@ class SizeReportTaskTest {
 
         val result = run("check")
 
-        assertEquals(TaskOutcome.SUCCESS, result.task(":$GATE")?.outcome)
+        assertEquals(TaskOutcome.SUCCESS, result.task(":$RELEASE_GATE")?.outcome)
         assertTrue("under a budget of" in result.output)
+    }
+
+    @Test
+    fun aCeilingDoesNotApplyToTheDebugBinaryThatNothingShips() {
+        // The defect. One `budget` was applied to every executable, so a service setting the ceiling
+        // for what it puts in an image was also holding its debug binary to it - and the debug binary
+        // of the module this was measured on is 28,580,560 bytes against 9,227,448 for the release
+        // one, 3.1x. The only ceiling that lets the build through is therefore one chosen for debug,
+        // and a ceiling that admits 28.6 MB is no longer watching the 9.2 MB artefact at all.
+        //
+        // 1.KiB rather than a realistic number on purpose: under the old behaviour *nothing* passes
+        // this, so the test fails if the split is ever undone.
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { budget = 1.KiB }")
+
+        val result = run(GATE)
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":$GATE")?.outcome)
+        assertTrue(
+            "nothing was checked" in result.output,
+            "and it says so - an ungated binary and a binary under budget are the same green task otherwise",
+        )
+        assertTrue("debug {" in result.output, "naming the block that would gate it")
+    }
+
+    @Test
+    fun aDebugCeilingIsOptedIntoAndThenItApplies() {
+        // The escape hatch, and the reason the default is a default rather than a refusal. A rule
+        // nobody can turn back on is a rule that gets worked around by raising the other number.
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { budget = 500.MiB; debug { budget = 1.KiB } }")
+
+        val result = runFailing(GATE)
+
+        assertEquals(
+            TaskOutcome.FAILED,
+            result.task(":$GATE")?.outcome,
+            "the release binary is well under its own 500 MiB, so this can only be the debug gate",
+        )
+        assertTrue("over its size budget" in result.output)
+    }
+
+    @Test
+    fun aDebugRuleDoesNotLeakOntoTheReleaseBinary() {
+        // The same wall from the other side: `debug { }` is the debug binaries' block and nothing
+        // else's, so a number put there cannot fail the build for the artefact that ships.
+        if (HOST_TARGET == null) return skipped()
+        project(extra = "binarySize { debug { budget = 500.MiB } }")
+
+        val result = run(RELEASE_GATE)
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":$RELEASE_GATE")?.outcome)
+        assertTrue(
+            "nothing was checked" in result.output,
+            "the release binary has no rule here, and a gate that checked nothing says so",
+        )
+        assertTrue("binarySize { budget" in result.output, "and names the block that would gate it")
     }
 
     @Test
     fun aGrowthBudgetWithNoBaselineFailsRatherThanPassingQuietly() {
         if (HOST_TARGET == null) return skipped()
-        project(extra = "binarySize { deltaPerChange = 3.percent }")
+        project(extra = "binarySize { debug { deltaPerChange = 3.percent } }")
 
         val result = runFailing("check")
 
@@ -292,7 +354,7 @@ class SizeReportTaskTest {
     fun growthBeyondTheDeltaFailsAndNamesTheRowsThatCausedIt() {
         // The whole argument for the gate. A total gives the reader nothing to decide with.
         if (HOST_TARGET == null) return skipped()
-        project(extra = "binarySize { deltaPerChange = 0.percent }")
+        project(extra = "binarySize { debug { deltaPerChange = 0.percent } }")
         run(BASELINE_TASK)
         addAPackage()
 
@@ -306,7 +368,7 @@ class SizeReportTaskTest {
     @Test
     fun aBreachLeavesTheBaselineAlone() {
         if (HOST_TARGET == null) return skipped()
-        project(extra = "binarySize { deltaPerChange = 0.percent }")
+        project(extra = "binarySize { debug { deltaPerChange = 0.percent } }")
         run(BASELINE_TASK)
         val committed = File(projectDir, BASELINE)
         val before = committed.readText()
@@ -642,6 +704,9 @@ class SizeReportTaskTest {
         val BASELINE_TASK = taskName("sizeBaselineWrite", HOST_TARGET)
         val DIFF = taskName("sizeDiff", HOST_TARGET)
 
+        /** The other build type, which is the one `budget` and `deltaPerChange` now mean. */
+        val RELEASE_GATE = taskName("sizeBudgetCheck", HOST_TARGET, "ReleaseExecutable")
+
         /** One directory per target, in `build/reports/razves/` and in the committed `razves/`. */
         val REPORT_JSON = "build/reports/razves/$HOST_TARGET/debugExecutable.json"
         val BASELINE = "razves/$HOST_TARGET/debugExecutable.json"
@@ -649,6 +714,7 @@ class SizeReportTaskTest {
         fun taskName(
             prefix: String,
             target: String?,
-        ) = prefix + target.orEmpty().replaceFirstChar { it.uppercase() } + "DebugExecutable"
+            binary: String = "DebugExecutable",
+        ) = prefix + target.orEmpty().replaceFirstChar { it.uppercase() } + binary
     }
 }

@@ -24,8 +24,12 @@ Two rules, both optional, both configured in one block:
 
 ```kotlin
 binarySize {
-    budget = 50.MiB            // an absolute ceiling
+    budget = 25.MiB            // an absolute ceiling, on the binary that ships
     deltaPerChange = 3.percent // growth against the committed baseline
+
+    debug {                    // opt in, with a number of its own, or leave debug ungated
+        budget = 40.MiB
+    }
 }
 ```
 
@@ -37,6 +41,18 @@ commented out the first time a Ktor patch release trips it.
 
 * **Both rules are optional and independently configurable.** A repository may want only a ceiling
   (a firmware-style constraint) or only a delta (a "do not let it creep" constraint).
+* **A rule belongs to a build type, and the unqualified one is the release binary's.** A debug
+  binary is not a larger version of the one that ships but a different order of size — 28,580,560
+  bytes against 9,227,448 for the same module at the same commit, 3.1× — and only the release one is
+  ever staged into an image. One number covering both would have to clear the debug figure, and a
+  ceiling that admits 28.6 MB has stopped watching the 9.2 MB artefact
+  ([B-40](../backlog/B-40-budget-per-build-type.md)).
+* **Debug binaries are ungated until `debug { }` says otherwise, and nothing is inherited into it.**
+  An inherited ceiling would be the release figure, which no debug binary fits, so every repository
+  would meet the original defect on its first build.
+* **A gate with no rule to apply says so.** "Passed" and "there was nothing to pass" are the same
+  green task in a build log, which is how a binary nobody gated gets read for a year as a binary
+  under budget. The verdict names the absence and the block that would end it.
 * **`deltaPerChange` requires a committed baseline.** Configuring it with no baseline file present
   fails with an instruction to run the baseline task, rather than passing vacuously.
 * **The gate reads the unstripped link output**, before any packaging or image step
@@ -70,11 +86,34 @@ commented out the first time a Ktor patch release trips it.
 |---|---|
 | gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` — task wiring |
 | gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/BinarySizeExtension.kt` — the DSL |
+| gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeRules.kt` — the two rules, per build type |
 | gradle-plugin | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeBudgetCheckTask.kt` |
 | gradle-plugin | `gradle-plugin/src/test/kotlin/io/github/youndie/razves/gradle/` — TestKit builds |
 | core | `core/src/commonMain/kotlin/io/github/youndie/razves/report/Budget.kt` — the comparison, with no Gradle types |
 
 ## 5. Scenarios (BDD / test cases)
+
+### Scenario: a ceiling does not apply to the debug binary
+* **Given:** `budget = 1.KiB` and no `debug { }` block.
+* **When:** the debug binary's gate runs.
+* **Then:** it succeeds, because the ceiling is the release binary's.
+* **And:** its verdict says that nothing was checked, and names the block that would change that.
+* **Automated:** `SizeReportTaskTest.aCeilingDoesNotApplyToTheDebugBinaryThatNothingShips`,
+  `BudgetTest.aBinaryWithNoRuleSaysThatNothingWasCheckedAndHowToGiveItOne`,
+  `BudgetTest.aRuleThatPassesDoesNotClaimThereWasNoRule`
+
+### Scenario: the same ceiling fails the release binary
+* **Given:** the same `budget = 1.KiB`.
+* **When:** `check` runs.
+* **Then:** the **release** binary's gate is the one that fails.
+* **Automated:** `SizeReportTaskTest.aBinaryOverItsCeilingFailsTheBuildAndNamesWhatIsInIt`
+
+### Scenario: a debug rule is opted into, and stays on debug
+* **Given:** `binarySize { budget = 500.MiB; debug { budget = 1.KiB } }`.
+* **Then:** the debug gate fails and the release gate does not.
+* **And:** a rule written only in `debug { }` leaves the release binary ungated, saying so.
+* **Automated:** `SizeReportTaskTest.aDebugCeilingIsOptedIntoAndThenItApplies`,
+  `SizeReportTaskTest.aDebugRuleDoesNotLeakOntoTheReleaseBinary`
 
 ### Scenario: a binary under budget passes
 * **Given:** `budget = 50.MiB` and a 20 MB binary.
@@ -160,3 +199,6 @@ commented out the first time a Ktor patch release trips it.
   budget has to be set with that in mind.
 * **A dependency bump can breach the delta without any local change.** That is the gate working,
   not a false positive — but it is why the message must name the rows.
+* **Upgrading from a version where `budget` covered every binary silently removes a debug gate.**
+  The one thing that makes it not silent is the "nothing was checked" verdict, printed on the first
+  build after the upgrade, next to the number it is no longer checking.

@@ -1,77 +1,84 @@
 package io.github.youndie.razves.gradle
 
 import io.github.youndie.razves.report.Measure
+import org.gradle.api.Action
+import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
+import javax.inject.Inject
 
 /**
  * ```kotlin
  * binarySize {
- *     budget = 50.MiB
+ *     budget = 25.MiB            // the release binary, which is the one that ships
  *     deltaPerChange = 3.percent
+ *
+ *     debug {                    // opt in, with a number of its own, or leave debug ungated
+ *         budget = 40.MiB
+ *     }
  * }
  * ```
  *
- * Both rules are optional and independent. A repository may want only a ceiling - a firmware-style
- * constraint - or only a delta, which is the "do not let it creep" one; configuring neither is a
- * decision rather than an oversight, and the report still runs.
+ * The rules themselves, and why there are two sets of them, are in [SizeRules].
  */
-public abstract class BinarySizeExtension {
-    /**
-     * How many segments of a package name a row carries.
-     *
-     * Not cosmetic: measured on a real release binary, depth 1 collapses everything into four rows
-     * and full depth produces hundreds. Three is what makes a table a person reads.
-     */
-    public abstract val packageDepth: Property<Int>
+public abstract class BinarySizeExtension
+    @Inject
+    constructor(
+        objects: ObjectFactory,
+    ) : SizeRules() {
+        /**
+         * How many segments of a package name a row carries.
+         *
+         * Not cosmetic: measured on a real release binary, depth 1 collapses everything into four rows
+         * and full depth produces hundreds. Three is what makes a table a person reads.
+         */
+        public abstract val packageDepth: Property<Int>
 
-    /** How many rows of each table the console report prints. The JSON always carries all of them. */
-    public abstract val rows: Property<Int>
+        /** How many rows of each table the console report prints. The JSON always carries all of them. */
+        public abstract val rows: Property<Int>
 
-    /**
-     * Where the committed baseline lives, relative to the project directory.
-     *
-     * A directory rather than a file, because one project can have several executables and each needs
-     * its own. It is meant to be committed: a baseline that is not in the repository is a baseline
-     * that says something different on every machine, which is not a thing to fail a build on.
-     */
-    public abstract val baselineDirectory: Property<String>
+        /**
+         * Where the committed baseline lives, relative to the project directory.
+         *
+         * A directory rather than a file, because one project can have several executables and each
+         * needs its own. It is meant to be committed: a baseline that is not in the repository is a
+         * baseline that says something different on every machine, which is not a thing to fail a
+         * build on.
+         */
+        public abstract val baselineDirectory: Property<String>
 
-    /**
-     * An absolute ceiling. `50.MiB`.
-     *
-     * It applies to the number [measure] names, and it is measured on the **link output** - before
-     * whatever packaging strips or packs it. A repository that strips afterwards is being held
-     * against a figure 19-21% larger than what it ships, which is a real trap and has to be set with
-     * open eyes.
-     */
-    public abstract val budget: Property<Long>
+        /**
+         * Which number the rules apply to.
+         *
+         * [Measure.FILE_SIZE] by default, because it is the number that ends up in the argument. It is
+         * also the jumpiest: the symbol table is a fifth of a Kotlin/Native binary and grows with every
+         * symbol name added. Whether that is the right default is
+         * [B-20](../../../../../../../docs/backlog/B-20-decide-the-budget-unit.md)'s question, and it is
+         * a question about data that does not exist yet.
+         *
+         * One setting for every binary, unlike the rules: it says what is being counted, not how much
+         * of it is allowed.
+         */
+        public abstract val measure: Property<Measure>
 
-    /**
-     * Growth against the committed baseline, as a fraction. `3.percent`.
-     *
-     * Needs a baseline; without one the gate **fails** rather than passing, because treating a
-     * missing reference as zero growth is how a gate ends up green for a year while measuring
-     * nothing.
-     */
-    public abstract val deltaPerChange: Property<Double>
+        /**
+         * Rules for the **debug** binaries, which are ungated until this block sets one.
+         *
+         * The inherited [budget] and [deltaPerChange] apply to release executables only, and this is
+         * why. A debug binary is not a larger version of the one that ships, it is a different order of
+         * size: 28,580,560 bytes against 9,227,448 for the same module at the same commit - 3.1x - and
+         * only the second one is ever staged into an image. A single number covering both therefore has
+         * to clear 28.6 MB, and a ceiling that admits 28.6 MB is no longer watching the 9.2 MB artefact
+         * at all; what ships could triple before the build noticed. So the number a repository writes
+         * without thinking about it is spent on what it ships, and debug is opted into - with its own
+         * number, because it is a different number.
+         *
+         * Nothing is inherited here. An empty block is the same as no block: a debug gate that checks
+         * nothing says so at `lifecycle`, rather than passing quietly.
+         */
+        public val debug: SizeRules = objects.newInstance(SizeRules::class.java)
 
-    /**
-     * Which number the rules apply to.
-     *
-     * [Measure.FILE_SIZE] by default, because it is the number that ends up in the argument. It is
-     * also the jumpiest: the symbol table is a fifth of a Kotlin/Native binary and grows with every
-     * symbol name added. Whether that is the right default is
-     * [B-20](../../../../../../../docs/backlog/B-20-decide-the-budget-unit.md)'s question, and it is
-     * a question about data that does not exist yet.
-     */
-    public abstract val measure: Property<Measure>
-
-    /** `50.MiB` */
-    public val Int.MiB: Long get() = this * 1024L * 1024L
-
-    /** `512.KiB` */
-    public val Int.KiB: Long get() = this * 1024L
-
-    /** `3.percent` */
-    public val Int.percent: Double get() = this / 100.0
-}
+        /** `debug { budget = 40.MiB }` */
+        public fun debug(action: Action<in SizeRules>) {
+            action.execute(debug)
+        }
+    }

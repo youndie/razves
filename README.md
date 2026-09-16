@@ -93,10 +93,20 @@ plugins {
 }
 
 binarySize {
-    budget = 50.MiB
+    budget = 25.MiB            // the release binary, the one that goes in the image
     deltaPerChange = 3.percent
+
+    debug {                    // opt in, with a number of its own, or leave debug ungated
+        budget = 40.MiB
+    }
 }
 ```
+
+`budget` and `deltaPerChange` are the **release** binary's, because the debug one is not a larger
+version of it but a different order of size — 28,580,560 bytes against 9,227,448 for the same
+module at the same commit. One number covering both would have to clear the first, and a ceiling
+that admits 28.6 MB is no longer watching the 9.2 MB artefact at all. A gate with no rule to apply
+says so rather than reporting the same success as one that passed.
 
 | task | what it does |
 |---|---|

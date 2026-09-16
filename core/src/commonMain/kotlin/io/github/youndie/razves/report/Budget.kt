@@ -31,6 +31,14 @@ public enum class Measure {
  */
 public object Budget {
     public fun check(request: BudgetRequest): BudgetVerdict {
+        // A GATE THAT CHECKS NOTHING SAYS SO. Not having a rule is a legitimate state - a repository
+        // may want the report and not the gate, and a debug binary is ungated until somebody asks -
+        // but it is indistinguishable, in a build log, from a rule that passed. That is how a gate
+        // stays green for a year while measuring nothing, so the one case where razves can tell the
+        // difference gets a sentence of its own, and it names what to write to end it.
+        if (request.budgetBytes == null && request.deltaFraction == null) {
+            return BudgetVerdict(breached = false, message = unruled(request))
+        }
         val rules =
             buildList {
                 request.budgetBytes?.let { add(checkCeiling(request, it)) }
@@ -88,6 +96,14 @@ public object Budget {
             append(TextDiff.render(diff, request.rows))
         }
     }
+
+    private fun unruled(request: BudgetRequest): String =
+        buildString {
+            append("${request.binary}: ${request.measure.label} ${group(request.measured)}")
+            append(" - no size rule is set for it, so nothing was checked")
+            request.rulesHint?.let { append(". Set one with $it") }
+            append(".")
+        }
 
     private fun passed(request: BudgetRequest): String =
         buildString {
@@ -157,6 +173,13 @@ public data class BudgetRequest(
     val deltaFraction: Double?,
     val measure: Measure = Measure.FILE_SIZE,
     val baselineTaskName: String = "the baseline task",
+    /**
+     * How a reader would give this binary a rule, in the words of whatever is running the check.
+     *
+     * Only ever printed when there is no rule at all. `core` does not know what a Gradle DSL looks
+     * like, and the caller that does should not have to rebuild the rest of the sentence to add it.
+     */
+    val rulesHint: String? = null,
     val rows: Int = 8,
 ) {
     val binary: String get() = report.binary
