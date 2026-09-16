@@ -105,7 +105,7 @@ subjects, so the flag's reach is bounded by that share.
 * **Given:** a project whose current binary is larger than its committed baseline.
 * **When:** the check task runs.
 * **Then:** the baseline file on disk is byte-identical to what it was before the run.
-* **And:** `sizeBaselineWrite<Binary>` is not part of `check`, which the plugin test asserts by
+* **And:** `sizeBaselineWrite<Target><Binary>` is not part of `check`, which the plugin test asserts by
   reading `check --dry-run`.
 * **And:** a diff with no baseline at all fails naming the task that writes one, and saying to commit
   it.

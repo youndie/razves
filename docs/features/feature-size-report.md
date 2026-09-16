@@ -252,7 +252,7 @@ dynamic-linking metadata.
 
 ### Scenario: the Gradle plugin attributes against the link classpath
 * **Given:** a Kotlin/Native project with a dependency, and the razves plugin applied.
-* **When:** `sizeReport<Binary>` runs.
+* **When:** `sizeReport<Target><Binary>` runs.
 * **Then:** the report describes the file the link task wrote, and its module rows name the klibs
   that link used.
 * **And:** there are no ambiguous rows — measured on a project with one dependency: `stdlib`,
@@ -261,6 +261,20 @@ dynamic-linking metadata.
   3.5 MB of 5.1 MB of Kotlin.
 * **And:** a second run is `UP-TO-DATE`, and the configuration cache is reused.
 * **Automated:** `SizeReportTaskTest` — skips, by name, on a host with no linkable target.
+
+### Scenario: a module with two native targets gets a set of tasks and a set of files per target
+* **Given:** one module declaring `linuxX64` and `macosArm64`, each with an executable.
+* **When:** the project is configured.
+* **Then:** there is a report, a baseline, a diff and a gate task for each of them, named
+  `sizeReportLinuxX64DebugExecutable`, `sizeReportMacosArm64DebugExecutable` and so on.
+* **And:** each writes its own files — `build/reports/razves/<target>/<binary>.json` and the
+  committed `razves/<target>/<binary>.json` — because a shared path means the second target
+  overwrites the first and the baseline describes whichever ran last.
+* **And:** a target this host cannot link skips, the way its link task does, rather than failing
+  `check` with a missing input for a binary nobody was going to build.
+* **Automated:** `SizeReportTaskTest.twoNativeTargetsInOneModuleEachGetTheirOwnTasks`,
+  `SizeReportTaskTest.eachTargetWritesItsOwnReportAndItsOwnBaseline`,
+  `SizeReportTaskTest.aTargetThisHostCannotLinkIsSkippedRatherThanFailingCheck`
 
 ### Scenario: klibs for the wrong target are refused, and only when they contradict
 * **Given:** a `linuxX64` binary and klibs whose manifests declare `native_targets=macos_arm64`.

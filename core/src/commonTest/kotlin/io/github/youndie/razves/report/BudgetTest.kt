@@ -32,7 +32,7 @@ class BudgetTest {
         budgetBytes = budgetBytes,
         deltaFraction = deltaFraction,
         measure = measure,
-        baselineTaskName = "sizeBaselineWriteDebugExecutable",
+        baselineTaskName = "sizeBaselineWriteLinuxX64DebugExecutable",
     )
 
     @Test
@@ -68,7 +68,7 @@ class BudgetTest {
 
         assertTrue(verdict.breached)
         assertTrue("no baseline" in verdict.message)
-        assertTrue("sizeBaselineWriteDebugExecutable" in verdict.message)
+        assertTrue("sizeBaselineWriteLinuxX64DebugExecutable" in verdict.message)
         assertTrue("commit the file it writes" in verdict.message)
     }
 

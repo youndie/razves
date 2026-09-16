@@ -5,7 +5,12 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 
 /**
- * `sizeReport<Target><BuildType>` for every Kotlin/Native executable in the project.
+ * `sizeReport<Target><Binary>` for every Kotlin/Native executable in the project -
+ * `sizeReportLinuxX64DebugExecutable`, and the same shape for the baseline, the diff and the gate.
+ *
+ * **The target is in the name because a module can have more than one.** `Executable.name` is
+ * unique within a target and identical across targets, so naming the tasks after it alone made a
+ * module with two native targets fail to configure - see [NativeBinaries].
  *
  * **Registration happens through `all { }` at plugin-application time, not in `afterEvaluate`.**
  * Targets and binaries are declared after the `plugins` block, and a convention plugin applied later

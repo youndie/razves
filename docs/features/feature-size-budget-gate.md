@@ -47,6 +47,12 @@ commented out the first time a Ktor patch release trips it.
 * **What the budget is measured on is explicit in the DSL.** File size by default, because that is
   the number that ends up in a ticket, with allocated size available for anyone who wants the more
   stable measure ([research open question 2](../research/research-architecture.md)).
+* **One gate per binary, and a binary is a target and a build type.** The tasks and the files they
+  read and write carry the target's name, because `debugExecutable` means a different binary under
+  every target a module declares.
+* **A target this host cannot link takes its gate with it.** The Kotlin Gradle Plugin disables that
+  target's link task; razves follows, rather than failing `check` on a binary the host was never
+  going to produce.
 * **The task is cacheable and its inputs are declared** — the binary, the klibs, the baseline file.
   A gate that reruns on every build is a gate people move to a nightly job.
 
@@ -125,6 +131,14 @@ commented out the first time a Ktor patch release trips it.
 * **Then:** it succeeds and the log carries a line naming the property and the fact that the size
   gate did not run.
 * **Automated:** `SizeReportTaskTest.turningTheGateOffSaysSo`
+
+### Scenario: a target this host cannot link does not fail the gate
+* **Given:** a module with a `linuxX64` and a `macosArm64` executable, on a Linux host.
+* **When:** `check` runs.
+* **Then:** the `linuxX64` gate runs, and the `macosArm64` one is `SKIPPED` — as its link task is.
+* **And:** it does not fail with "Input file does not exist", which is a gate every mac-less machine
+  in the repository would switch off.
+* **Automated:** `SizeReportTaskTest.aTargetThisHostCannotLinkIsSkippedRatherThanFailingCheck`
 
 ### Scenario: the task is up to date on a second run
 * **Given:** a successful `sizeBudgetCheck` and no change to the binary, the klibs or the baseline.

@@ -25,10 +25,16 @@ Tasks:
 
 | Task | What it does |
 |---|---|
-| `sizeReport<Binary>` | attributes that binary's link output and writes the report; one per executable |
-| `sizeBudgetCheck<Binary>` | fails the build on a breached budget or delta; wired into `check` |
-| `sizeBaselineWrite<Binary>` | rewrites the committed baseline in `razves/`; deliberately **not** wired into `check` |
-| `sizeDiff<Binary>` | what moved since the committed baseline |
+| `sizeReport<Target><Binary>` | attributes that binary's link output and writes the report; one per executable |
+| `sizeBudgetCheck<Target><Binary>` | fails the build on a breached budget or delta; wired into `check` |
+| `sizeBaselineWrite<Target><Binary>` | rewrites the committed baseline in `razves/<target>/`; deliberately **not** wired into `check` |
+| `sizeDiff<Target><Binary>` | what moved since the committed baseline |
+
+`<Target>` is the Kotlin/Native target and `<Binary>` is the `Executable`'s own name, which is the
+build type and the output kind: `sizeReportLinuxX64DebugExecutable`,
+`sizeBudgetCheckMacosArm64ReleaseExecutable`. Both halves are needed — the second is what a binary
+is called under *every* target, so a module with two of them had two tasks of each name and did not
+configure at all ([B-39](../backlog/B-39-target-in-the-task-names.md)).
 
 What it deliberately does **not** do: any attribution of its own. Everything interesting lives in
 [core](core.md), so it is testable without a Gradle daemon.
@@ -46,7 +52,8 @@ What it deliberately does **not** do: any attribution of its own. Everything int
 
 | File | What is there |
 |---|---|
-| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` | task registration, wiring to the link tasks, and the klib set they were linked against |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/RazvesPlugin.kt` | the extension, its defaults, and the guard that keeps every Kotlin type out of the plugin class |
+| `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/NativeBinaries.kt` | task registration and naming, wiring to the link tasks, and the klib set they were linked against |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/BinarySizeExtension.kt` | the DSL and its units |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeReportTask.kt` | inputs, outputs, cacheability |
 | `gradle-plugin/src/main/kotlin/io/github/youndie/razves/gradle/SizeBudgetCheckTask.kt` | the comparison and the failure message |
@@ -73,6 +80,13 @@ plugin that resolves a configuration while the build is being configured breaks 
 cache and forces a resolution nobody asked for. What the plugin knows and a bare CLI does not is
 *which* klibs; the package-to-module mapping itself lives inside each klib
 ([research §1.5](../research/research-architecture.md)) and is read by the core.
+
+**A target whose link task is disabled takes its four tasks with it.** A module with a `macosArm64`
+target on a Linux machine has a link task the Kotlin Gradle Plugin disabled, so the binary is never
+produced; a gate wired to it and sitting in `check` would fail with Gradle's own "Input file does
+not exist" on every machine that is not a mac. razves reads `linkTaskProvider.get().enabled` rather
+than deciding for itself which targets a host supports, so a hand-disabled link task behaves the
+same way.
 
 **Wiring happens at plugin-application time, not in `afterEvaluate`.** Targets are declared after
 the plugin block, so the registration has to be driven by the target container's `all { }` rather
@@ -126,5 +140,8 @@ Do not copy the full list here as it grows — the extension class is the source
 * **The gate measures the link output, not what ships.** A project that strips or packs afterwards
   is being measured on a number 19–21% larger than its artifact
   ([research §1.2](../research/research-architecture.md)).
+* **A rename of the tasks renames the baseline files too.** Baselines written before the target was
+  part of the path sit in `razves/<binary>.json` and are no longer read; the gate fails with the name
+  of the task that writes the new one, which is a loud migration rather than a silent one.
 * **`razves.skip` must log.** A silent bypass property becomes the repository's default state
   within a quarter and nobody remembers it is set.

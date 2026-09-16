@@ -40,12 +40,31 @@ internal object NativeBinaries {
         extension: BinarySizeExtension,
         binary: Executable,
     ) {
-        val name = "sizeReport${binary.name.replaceFirstChar { it.uppercase() }}"
-        val reports = project.layout.buildDirectory.dir("reports/razves")
+        // THE TARGET IS PART OF EVERY NAME HERE - TASKS, REPORTS AND THE COMMITTED BASELINE - and
+        // that is not symmetry for its own sake. `Executable.name` is the build type and the output
+        // kind (`debugExecutable`), which is unique within one target and identical across targets:
+        // a module with `linuxX64` and `macosArm64` produced the same four task names twice and
+        // failed to configure at all ("Cannot add task 'sizeReportDebugExecutable'"), and the report
+        // and baseline paths would have collided silently afterwards - the second target overwriting
+        // the first, which looks like it worked. `target.name` plus `binary.name` is unique by
+        // construction, because that pair is what names a binary in the Kotlin Gradle Plugin too.
+        val target = binary.target.name
+        val name = taskName("sizeReport", binary)
+        val reports = project.layout.buildDirectory.dir("reports/razves/$target")
+
+        // A SECOND TARGET ALSO MEANS A TARGET THIS HOST CANNOT LINK, and the Kotlin Gradle Plugin
+        // says so by disabling that target's link task. Its output is then never produced, so a
+        // report wired to it fails with Gradle's own "Input file does not exist" - and since the gate
+        // is in `check`, every Linux machine in a repository that has a `macosArm64` target would
+        // fail `check` for a binary it was never going to build. razves follows the link task rather
+        // than deciding for itself: whatever made that task skip, including a hand-disabled one,
+        // makes its report skip too.
+        val linkable = project.provider { binary.linkTaskProvider.get().enabled }
         val report =
             project.tasks.register(name, SizeReportTask::class.java) { task ->
+                task.enabled = linkable.get()
                 task.group = "verification"
-                task.description = "What is in ${binary.name}, by origin, package and module."
+                task.description = "What is in $target's ${binary.name}, by origin, package and module."
 
                 // The link task, not the compile one, and its output rather than a path guessed from the
                 // layout: a hard-coded path is how a report ends up describing yesterday's binary.
@@ -70,25 +89,24 @@ internal object NativeBinaries {
 
         val baseline =
             extension.baselineDirectory.map { directory ->
-                project.layout.projectDirectory.file("$directory/${binary.name}.json")
+                project.layout.projectDirectory.file("$directory/$target/${binary.name}.json")
             }
-        val baselineTaskName = "sizeBaselineWrite${binary.name.replaceFirstChar { it.uppercase() }}"
+        val baselineTaskName = taskName("sizeBaselineWrite", binary)
 
         // Not wired into `check`, and that is the whole of it: anything that both verifies and
         // rewrites its own reference passes forever.
         project.tasks.register(baselineTaskName, SizeBaselineWriteTask::class.java) { task ->
+            task.enabled = linkable.get()
             task.group = "verification"
-            task.description = "Rewrite the committed size baseline for ${binary.name}."
+            task.description = "Rewrite the committed size baseline for $target's ${binary.name}."
             task.report.set(report.flatMap { it.json })
             task.baseline.set(baseline)
         }
 
-        project.tasks.register(
-            "sizeDiff${binary.name.replaceFirstChar { it.uppercase() }}",
-            SizeDiffTask::class.java,
-        ) { task ->
+        project.tasks.register(taskName("sizeDiff", binary), SizeDiffTask::class.java) { task ->
+            task.enabled = linkable.get()
             task.group = "verification"
-            task.description = "What moved in ${binary.name} since the committed baseline."
+            task.description = "What moved in $target's ${binary.name} since the committed baseline."
             task.current.set(report.flatMap { it.json })
             // Only an existing file is wired in: an absent baseline is the normal state before anybody
             // has written one, and the task then says which task to run rather than failing on a
@@ -100,12 +118,10 @@ internal object NativeBinaries {
         }
 
         val gate =
-            project.tasks.register(
-                "sizeBudgetCheck${binary.name.replaceFirstChar { it.uppercase() }}",
-                SizeBudgetCheckTask::class.java,
-            ) { task ->
+            project.tasks.register(taskName("sizeBudgetCheck", binary), SizeBudgetCheckTask::class.java) { task ->
+                task.enabled = linkable.get()
                 task.group = "verification"
-                task.description = "Fail the build if ${binary.name} is over budget or grew too much."
+                task.description = "Fail the build if $target's ${binary.name} is over budget or grew too much."
                 task.report.set(report.flatMap { it.json })
                 task.baseline.fileProvider(baseline.map { it.asFile }.filter { it.isFile })
                 task.budget.set(extension.budget)
@@ -130,4 +146,13 @@ internal object NativeBinaries {
         // razves to a module that happens not to have one.
         project.tasks.matching { it.name == "check" }.configureEach { it.dependsOn(gate) }
     }
+
+    /** `sizeReportLinuxX64DebugExecutable`: the pair that names a binary in KGP, in razves' spelling. */
+    private fun taskName(
+        prefix: String,
+        binary: Executable,
+    ): String =
+        prefix +
+            binary.target.name.replaceFirstChar { it.uppercase() } +
+            binary.name.replaceFirstChar { it.uppercase() }
 }

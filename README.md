@@ -100,10 +100,15 @@ binarySize {
 
 | task | what it does |
 |---|---|
-| `sizeReport<Binary>` | the report above, as text and as JSON |
-| `sizeBaselineWrite<Binary>` | writes the baseline you commit — deliberately **not** part of `check` |
-| `sizeDiff<Binary>` | what moved since that baseline, row by row |
-| `sizeBudgetCheck<Binary>` | the gate, in `check` |
+| `sizeReport<Target><Binary>` | the report above, as text and as JSON |
+| `sizeBaselineWrite<Target><Binary>` | writes the baseline you commit — deliberately **not** part of `check` |
+| `sizeDiff<Target><Binary>` | what moved since that baseline, row by row |
+| `sizeBudgetCheck<Target><Binary>` | the gate, in `check` |
+
+One set per executable of every Kotlin/Native target: `sizeReportLinuxX64ReleaseExecutable`,
+`sizeBudgetCheckMacosArm64DebugExecutable`. Reports land in
+`build/reports/razves/<target>/`, baselines in `razves/<target>/`, and a target this host cannot
+link skips rather than failing `check`.
 
 Or as a CLI, on any binary, with no build system in sight:
 
