@@ -15,7 +15,7 @@ dependencies {
     // compile classpath. proba said so of the first published version: a consumer compiling against
     // this target never receives `core`, which the run time does receive.
     api(project(":core"))
-    compileOnly(libs.kotlin.gradle.plugin)
+    compileOnly(wip.kotlin.gradle.plugin)
     testImplementation(gradleTestKit())
 }
 
