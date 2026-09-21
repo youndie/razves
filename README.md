@@ -189,6 +189,15 @@ kotlin {
 A project that had never seen this repository linked that, sampled itself for 2,662 samples, and
 razves named 99.3% of its leaves.
 
+**What it cannot profile: an event loop that does not retry `EINTR`.** Sampling means a timer
+signal, and a signal interrupts `pselect`. Ktor's CIO engine on Kotlin/Native turns that `EINTR`
+into an exception instead of retrying it, so such a server dies the moment sampling starts, with a
+stack that names Ktor rather than razves. `SA_RESTART` is set on the handler and cannot help —
+`signal(7)` never restarts `select`/`pselect`/`poll`/`ppoll`/`epoll_wait`. Lowering the rate is not
+a workaround either: at 97 Hz the same service still died in two runs of three, which turns a crash
+into an intermittent one. Profile such a program from outside, with `perf`; the measurement is in
+[research §6](docs/research/research-profiler.md#6-corrections-found-while-implementing).
+
 ### 🚦 The gate is the point
 
 A report is interesting once. What gets installed is the build that goes red:
