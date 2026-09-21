@@ -382,3 +382,44 @@ trampoline as frame 1, so every sample in every profile had the same leaf until
 [B-37](../backlog/B-37-profile-command.md). razves reported one C function as 100% of a workload that
 is mostly Kotlin, and every unit test passed while it did - they all handed the aggregation stacks a
 test had made up.
+
+**Nothing in §1 or §4 said the sampler can kill the profiled process outright, and it can.** Linking
+`:sampler` into a Kotlin/Native service that serves HTTP through Ktor's CIO engine and starting the
+sampler ends the process:
+
+```
+Uncaught Kotlin exception: io.ktor.utils.io.errors.PosixException.InterruptedException:
+    pselect failed, EINTR (4): Interrupted system call
+  at kfun:io.ktor.network.selector.SelectorHelper.$selectionLoopCOROUTINE$0.invokeSuspend
+```
+
+The timer signal interrupts `pselect` in the selector loop, `SelectorHelper` turns the errno into an
+exception without special-casing `EINTR`, nothing catches it, and the process dies. Reported on
+2026-09-21 from a Kotlin/Native service outside this repository — one binary, one ~180 rps HTTP
+workload with SQLite on the request path, the sampler the only difference between the arms:
+
+| arm | survived | `EINTR` in the log |
+|---|---|---:|
+| sampler off | yes | 0 |
+| `start(997)` | **no** | 1 |
+| `start(97)`, 30 s | yes | 0 |
+
+A lower rate looks like the workaround, so it was repeated at 60 s: the same 97 Hz died in **two
+rounds of three**. **Lowering the rate is not a fix**, it only makes the death rarer — which is worse
+than a reliable one, because the 30-second run above is exactly the experiment a user performs to
+convince themselves the problem is gone.
+
+`SA_RESTART` is already set on both handlers (`sampler/src/nativeInterop/cinterop/sampler.def`) and
+cannot help here. `signal(7)` lists the file-descriptor multiplexing calls — `select`, `pselect`,
+`poll`, `ppoll`, `epoll_wait`, `epoll_pwait` — as *never* restarted after a handler runs, whatever
+the flag says. Every event loop built on one of them is exposed, and razves has no flag left to set.
+
+**The defect is not razves', and that changes nothing for the user.** A `pselect` caller that does
+not retry on `EINTR` is broken for any process that receives signals at all — a debugger, a timer
+somebody else armed — and the sampler only makes it frequent enough to notice. But the failure
+arrives when `:sampler` is linked, and the stack names Ktor rather than anything the reader can act
+on, so the limitation is stated where the sampler is offered (`README.md`) rather than only here. The
+two real fixes are both outside this repository: retry `EINTR` in Ktor's native `SelectorHelper`, or
+a sampling mechanism that delivers no signals to the sampled threads. Until one exists, a program
+whose event loop is `select`/`poll`/`epoll` without an `EINTR` retry is profiled from outside the
+process, with `perf`, and razves symbolises nothing for it.
