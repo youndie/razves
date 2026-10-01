@@ -2,7 +2,7 @@
 
 [![check](https://github.com/youndie/razves/actions/workflows/check.yaml/badge.svg)](https://github.com/youndie/razves/actions/workflows/check.yaml)
 [![snapshots](https://reposilite.kotlin.website/api/badge/latest/snapshots/io/github/youndie/razves/core?name=snapshots&color=blue&prefix=v)](https://reposilite.kotlin.website/#/snapshots/io/github/youndie/razves/core)
-[![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![kotlin](https://img.shields.io/badge/Kotlin-2.4.20-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![native](https://img.shields.io/badge/Native-blue?logoColor=white)](https://kotlinlang.org/docs/native-overview.html)
 [![jvm](https://img.shields.io/badge/JVM-orange?logoColor=white)](https://kotlinlang.org)
 [![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
