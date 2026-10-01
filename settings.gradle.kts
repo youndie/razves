@@ -14,7 +14,7 @@ pluginManagement {
 }
 
 plugins {
-    id("io.github.youndie.sborka.settings") version "0.4.0.87"
+    id("io.github.youndie.sborka.settings") version "0.4.0.111"
 }
 
 // The reader, the grammar and the report model. Everything interesting lives here, with no Gradle
