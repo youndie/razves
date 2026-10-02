@@ -21,8 +21,8 @@ links run top to bottom.
 **No `screens/`** — there is no client. **No `api/`** — there is no HTTP surface; the two contracts
 this project has, the Gradle DSL and the CLI arguments, live in
 [`services/gradle-plugin.md`](services/gradle-plugin.md) §2 and [`services/cli.md`](services/cli.md)
-§2 respectively. A missing directory is a valid answer; a renamed one is not — the checkers in
-[`scripts/`](../scripts/) look for these names.
+§2 respectively. A missing directory is a valid answer; a renamed one is not — the docs-bootstrap
+checks `make check` runs look for these names.
 
 **Backlog** — [backlog.md](../backlog.md): the index and the decisions; the items themselves are
 one file each in [`backlog/`](backlog/), cited as `[B-14](backlog/B-14-budget-gate.md)`.
@@ -59,20 +59,17 @@ Then the backlog, then the layer document the task belongs to.
 
 ```bash
 pip install pyyaml
-make check
+make check     # the gate and the reports, exactly what CI runs
+make gate      # the blocking half alone: backlog index, cross-references, coverage map
+make report    # the two reports: BDD coverage, code anchors
+make fix       # regenerate the backlog index, append missing coverage-map lines
 ```
 
-or the pieces:
+The checks are docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@<tag>` line in
+`.github/workflows/check.yaml` pins; the Makefile reads that line and fetches the same tag into
+`.docs-bootstrap/`, so a local run checks with what CI checks with. Renovate bumps the line.
 
-```bash
-python3 scripts/backlog_index.py --check
-python3 scripts/docs_check.py
-python3 scripts/coverage_map.py --check
-python3 scripts/bdd_report.py
-python3 scripts/code_anchors.py --repos .
-```
-
-The last two are reports, not gates: demanding a percentage of automated scenarios is meaningless
+The reports are not gates: demanding a percentage of automated scenarios is meaningless
 while nothing is implemented, and an anchor goes stale because of a refactor a machine cannot
 distinguish from a path quoted as obsolete.
 
