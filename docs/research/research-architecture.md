@@ -47,7 +47,7 @@ They are not there.
 | Fact | Where verified |
 |---|---|
 | The only LLVM distribution Kotlin/Native 2.4.10 downloads on macOS aarch64 is `llvm-21-aarch64-macos-essentials-97` | `~/.konan/dependencies/` |
-| Its `bin/` holds exactly nine entries: `clang`, `clang++`, `clang-21`, `clang-cache`, `ld.lld`, `lld`, `llvm-ar`, `llvm-cov`, `llvm-profdata` | `ls ~/.konan/dependencies/llvm-21-aarch64-macos-essentials-97/bin/` |
+| Its `bin` directory holds exactly nine entries: `clang`, `clang++`, `clang-21`, `clang-cache`, `ld.lld`, `lld`, `llvm-ar`, `llvm-cov`, `llvm-profdata` | `ls ~/.konan/dependencies/llvm-21-aarch64-macos-essentials-97/bin/` |
 | There is no `llvm-nm`, no `llvm-size`, no `llvm-objdump`, no `llvm-strip` in it | same listing |
 | `~/.konan/kotlin-native-prebuilt-macos-aarch64-2.4.10/bin/` holds `cinterop`, `generate-platform`, `klib`, `konan-lldb`, `konanc`, `kotlinc-native`, `run_konan` — no binary reader either | `ls ~/.konan/kotlin-native-prebuilt-macos-aarch64-2.4.10/bin/` |
 | On this mac the readers came from Xcode instead: `xcrun --find llvm-nm` → `…/XcodeDefault.xctoolchain/usr/bin/llvm-nm`; `/usr/bin/nm` reports itself as "llvm-nm, compatible with GNU nm, Apple LLVM version 21.0.0" | `xcrun --find llvm-nm`, `nm --version` |
@@ -110,7 +110,7 @@ unchanged to a tenth of a percent, and the runtime now has a number of its own �
 |---|---|
 | Section table, sizes and types of all four binaries | `xcrun llvm-objdump --section-headers <binary>` |
 | Symbol sizes | `xcrun llvm-nm --print-size --radix=d <binary>` |
-| `shildik/distribution/build/bin/linuxX64/releaseExecutable/shildik.kexe` is `ELF 64-bit LSB executable, x86-64 … not stripped` | `file <binary>` |
+| shildik's linuxX64 release executable, `shildik.kexe` (build output of its distribution module, under build/bin/linuxX64/releaseExecutable), is `ELF 64-bit LSB executable, x86-64 … not stripped` | `file <binary>` |
 | The two single largest symbols in the Postgres release binary are `ossl_aes_gcm_encrypt_avx512` (337,642 B) and `ossl_aes_gcm_decrypt_avx512` (337,638 B) | `llvm-nm --print-size --size-sort` on that binary |
 | The largest Kotlin symbol in it is `kfun:kotlin.text.regex.AbstractCharClass.Companion.CharClasses.$init_global#internal` (65,465 B) | same listing |
 | `.text` is 97.7% attributable by symbol; `.rodata` only 40.7%; `.eh_frame` (1,287,092 B), `.eh_frame_hdr` (213,092 B) and `.gcc_except_table` (42,907 B) are 0% attributable by symbol | per-section attribution run over the Postgres release binary |
@@ -199,7 +199,7 @@ floor as a Kotlin/Native binary gets.
 | `shildik:distribution-sqlite` release | 21,555,648 | 5,125,151 | **40,871** | 0.2% | 20.1% |
 
 *Shares are of the attributed bytes; `metadata` is of the file. Sources:
-`booblik-native-conformance/build/bin/linuxX64/releaseExecutable/conformance.kexe` and the four
+the linuxX64 release executable of booblik's native conformance suite, `conformance.kexe`, and the four
 `shildik` binaries of §1.2, plus this repository's own two.*
 
 | Fact | Where verified |
@@ -332,9 +332,9 @@ Gradle does not". Half true, and the half that is false is the useful half.
 | Fact | Where verified |
 |---|---|
 | `klib info <library>` prints `unique_name=<group>:<artifact>` and a `Non-empty package FQNs` list | `~/.konan/kotlin-native-prebuilt-macos-aarch64-2.4.10/bin/klib info <klib>` |
-| Example: `crypto-linuxX64Main-0.2.0-probe.klib` → `unique_name=ru.workinprogress.shildik:crypto`, packages `[ru.workinprogress.shildik.crypto]` | that command on `shildik/crypto/build/libs/crypto-linuxX64Main-0.2.0-probe.klib` |
+| Example: `crypto-linuxX64Main-0.2.0-probe.klib` → `unique_name=ru.workinprogress.shildik:crypto`, packages `[ru.workinprogress.shildik.crypto]` | that command on the klib shildik's crypto module builds into its build/libs directory |
 | It also prints `depends=`, `native_targets=`, `compiler_version=`, `abi_version=` and a per-section size breakdown of the klib itself | same output |
-| Over 141 klibs — every `*linuxX64Main*.klib` in the Gradle module cache plus the Kotlin/Native `klib/common` and `klib/platform/linux_x64` distributions — the mapping covers 568 packages across 122 modules | scripted `klib info` sweep, 2026-09-11 |
+| Over 141 klibs — every `*linuxX64Main*.klib` in the Gradle module cache plus the Kotlin/Native `kotlin-native-prebuilt-macos-aarch64-2.4.10!/klib/common` and `kotlin-native-prebuilt-macos-aarch64-2.4.10!/klib/platform/linux_x64` distributions — the mapping covers 568 packages across 122 modules | scripted `klib info` sweep, 2026-09-11 |
 | **9 of those 568 packages (1.6%) are claimed by more than one module** | same sweep |
 | The collisions: `androidx.lifecycle` (lifecycle-common + lifecycle-runtime); five `com.github.ajalt.clikt.*` packages (clikt + clikt-mordant); `dev.inmo.tgbotapi.extensions.behaviour_builder` (tgbotapi.behaviour_builder + …fsm); `org.koin.core` (koin-core + koin-ktor); `org.koin.core.annotation` (koin-core + koin-core-annotations) | same sweep |
 
@@ -358,13 +358,14 @@ and it is verified against `java.util.zip` on 8,642 entries and 87,025,540 bytes
 looked right.**
 
 *Empty intermediate packages.* A klib emits a `package_<fqn>/` directory for every level of every
-package it has, each carrying a real metadata fragment: `package_co/0_co.knm` is 14 bytes beside a
-3,985-byte `package_co.touchlab.stately.collections/0_collections.knm`, and nothing is declared in
+package it has, each carrying a real metadata fragment: `co.touchlab:stately-concurrent-collections-linuxx64:2.1.0!/default/linkdata/package_co/0_co.knm`
+is 14 bytes beside a 3,985-byte
+`co.touchlab:stately-concurrent-collections-linuxx64:2.1.0!/default/linkdata/package_co.touchlab.stately.collections/0_collections.knm`, and nothing is declared in
 `co`. Counting directories put the ambiguous share at 9.3% against the 1.6% above. An empty fragment
 opens with three zero-length fields — `0A 00 12 00 1A 00` — and that is how razves tells them apart.
 
 *The klib set is the link classpath, not every klib on disk.* A project's build directory holds
-`kotlinTransformedMetadataLibraries/` copies of its dependencies whose `unique_name` is the
+`kotlinTransformedMetadataLibraries` copies of its dependencies whose `unique_name` is the
 source-set form: `kotlinx-datetime_commonMain` beside the published
 `org.jetbrains.kotlinx:kotlinx-datetime`. Supplying both makes every package that library declares
 look declared twice — **69 ambiguous rows worth 3.5 MB of 5.1 MB of Kotlin**, with nothing in the
@@ -401,7 +402,7 @@ read out of the compiler rather than recalled.
 
 | Fact | Where verified |
 |---|---|
-| Kotlin/Native 2.4.10 registers 56 binary options | `javap -p` over `org/jetbrains/kotlin/config/nativeBinaryOptions/BinaryOptions.class`, extracted from `kotlin-native-compiler-embeddable.jar` in the prebuilt distribution |
+| Kotlin/Native 2.4.10 registers 56 binary options | `javap -p` over `kotlin-native-prebuilt-macos-aarch64-2.4.10!/konan/lib/kotlin-native-compiler-embeddable.jar!/org/jetbrains/kotlin/config/nativeBinaryOptions/BinaryOptions.class`, extracted from the compiler jar of the prebuilt distribution |
 | The size-relevant ones present in that class: `smallBinary`, `stripDebugInfoFromNativeLibs`, `sourceInfoType`, `preCodegenInlineThreshold`, `latin1Strings`, `packFields`, `linkRuntime`, `gc` | same listing |
 | `-Xbinary=list` is not a thing — the compiler answers `error: incorrect property format: expected '<key>=<value>', got 'list'` | `konanc -Xbinary=list` |
 | `smallBinary`: `true`/`false`, default `false`, experimental since 2.2.20, "decreases the binary size for release binaries", implemented by making `-Oz` the default LLVM optimisation argument | [kotlinlang.org/docs/native-binary-options.html](https://kotlinlang.org/docs/native-binary-options.html), [What's new in Kotlin 2.2.20](https://kotlinlang.org/docs/whatsnew2220.html) |
