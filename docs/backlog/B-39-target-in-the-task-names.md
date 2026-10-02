@@ -14,7 +14,7 @@ epic: feature-size-report
 > Cannot add task 'sizeReportDebugExecutable' as a task with that name already exists.
 ```
 
-**Found by a consumer, not by a test** — `kafka-native-spike` B-04, where the workaround was to make
+**Found by a consumer, not by a test** — a private spike's B-04, where the workaround was to make
 the `macosArm64` target opt-in and apply razves only when it is off. Every task razves registered was
 named after `Executable.name` alone (`sizeReportDebugExecutable`, `sizeBudgetCheckReleaseExecutable`),
 and `Executable.name` is the build type and the output kind: it is unique within one target and
@@ -48,7 +48,7 @@ code had never been.
   output is never produced and a report wired to it fails with "Input file does not exist" — in
   `check`, on every machine that is not a mac. razves now follows `linkTaskProvider.get().enabled`,
   so the four tasks skip exactly when the link does. Without this, the rename alone would not have
-  let `kafka-native-spike` drop its workaround; it would only have changed which error it got.
+  let that spike drop its workaround; it would only have changed which error it got.
 - Deliberately **not** covered: linking two targets in one test run. No host can, and the defect is
   a configuration-time one — declaring the second target is the whole of the reproduction.
 
