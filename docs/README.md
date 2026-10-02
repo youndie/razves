@@ -61,7 +61,7 @@ Then the backlog, then the layer document the task belongs to.
 pip install pyyaml
 make check     # the gate and the reports, exactly what CI runs
 make gate      # the blocking half alone: backlog index, cross-references, coverage map
-make report    # the two reports: BDD coverage, code anchors
+make report    # the two reports: BDD coverage, code anchors (this one blocks: ANCHORS_ARGS)
 make fix       # regenerate the backlog index, append missing coverage-map lines
 ```
 

@@ -354,7 +354,7 @@ dynamic-linking metadata.
 * **`.rodata` coverage is 40.7%.** Any conclusion about data size rests on less than half of the
   section, which is why coverage is printed per section.
 * **The klib set must be the link classpath.** A directory sweep of a project's build tree picks up
-  `kotlinTransformedMetadataLibraries/` copies of dependencies, whose `unique_name` is the source-set
+  `kotlinTransformedMetadataLibraries` copies of dependencies, whose `unique_name` is the source-set
   form — so the same library appears twice and every package it declares reads as ambiguous. Measured:
   69 ambiguous rows worth 3.5 MB against 8 worth 0.6 MB. Nothing in the report looks wrong when this
   happens, which is why the plugin supplies the classpath rather than a directory.

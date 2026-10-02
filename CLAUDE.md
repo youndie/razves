@@ -42,7 +42,11 @@ Apple targets do not cross-compile.
 make check
 ```
 
-That is the gate, and CI runs exactly it. `make report` is the two non-blocking reports;
+That is the gate, and CI runs exactly it. `make report` is the two reports: BDD
+coverage, which does not block, and code anchors, which does (`ANCHORS_ARGS ?= --check` in the
+Makefile) - a path in `docs/` that resolves to nothing fails `make check`. A path outside this
+repository is an address (`<artefact>!/<path>`, `youndie/<repo>@<commit>!/<path>`, docs-bootstrap
+SPEC §4.1), and a build output directory is named without backticks or a trailing slash;
 `make fix` regenerates the backlog index and the coverage-map membership. The checks are
 docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@<tag>` line in
 `.github/workflows/check.yaml` pins: the Makefile reads that line and fetches the same tag into
