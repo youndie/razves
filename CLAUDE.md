@@ -43,4 +43,8 @@ make check
 ```
 
 That is the gate, and CI runs exactly it. `make report` is the two non-blocking reports;
-`make fix` regenerates the backlog index and the coverage-map membership.
+`make fix` regenerates the backlog index and the coverage-map membership. The checks are
+docs-bootstrap's, at the version the `uses: youndie/docs-bootstrap@<tag>` line in
+`.github/workflows/check.yaml` pins: the Makefile reads that line and fetches the same tag into
+`.docs-bootstrap/`, so nothing is copied into `scripts/` and the version is written nowhere else.
+`scripts/` holds only razves's own `sampling_cost.py`.
