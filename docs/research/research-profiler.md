@@ -221,9 +221,9 @@ encoder, which is a further day.
 ### 1.10 MCP on a native binary is already proven in this portfolio
 
 `tracy` ships MCP from a server that builds for `jvm`, `macosArm64` and `linuxX64`
-(`tracy/server/build.gradle.kts`), using `io.modelcontextprotocol:kotlin-sdk-server` over a stateless
+(`youndie/tracy@1054ddd!/server/build.gradle.kts`), using `io.modelcontextprotocol:kotlin-sdk-server` over a stateless
 streamable-HTTP transport, gated by a token
-(`tracy/server/src/commonMain/kotlin/io/github/youndie/tracy/server/mcp/McpTransport.kt`), with
+(`youndie/tracy@1054ddd!/server/src/commonMain/kotlin/io/github/youndie/tracy/server/mcp/McpTransport.kt`), with
 read-only tools registered one by one (`RegisterTools.kt`: `list_services`, `search_logs`,
 `get_trace`, `search_spans`, …).
 

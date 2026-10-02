@@ -23,8 +23,8 @@ What it deliberately does **not** do:
 
 * **know anything about Gradle.** No Gradle API on its classpath, so the whole of the interesting
   logic is testable without a TestKit build. This is the arrangement `sborka` already uses for
-  `build-logic/core`, and the reason is the same: a test that needs a Gradle daemon is a test that
-  gets run less often.
+  `youndie/sborka@27c896d!/build-logic/core`, and the reason is the same: a test that needs a
+  Gradle daemon is a test that gets run less often.
 * **run subprocesses.** Not `llvm-nm`, not `llvm-size`, not `bloaty`, not `strip`. Kotlin/Native's
   own LLVM distribution ships none of them ([research §1.1](../research/research-architecture.md)),
   so a subprocess is a hidden host requirement that only fails in someone else's CI.
