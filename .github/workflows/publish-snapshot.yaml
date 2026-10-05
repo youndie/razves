@@ -19,7 +19,7 @@ on:
 
 jobs:
   publish:
-    uses: youndie/sborka/.github/workflows/publish-wip.yaml@main
+    uses: youndie/sborka/.github/workflows/publish-wip.yaml@v0.5.0.130
     with:
       # `build` in front of the publish rather than a separate `check`: this repository's tests
       # need no service and no secret, so there is nothing the two must not share.
