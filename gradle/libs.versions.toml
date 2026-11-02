@@ -3,8 +3,8 @@
 # publishes carries `kotlin` and the Kotlin Gradle plugin, so neither has a version in this file
 # to drift from the rest of the portfolio.
 sborka = "0.4.0.111"
-kotlinx-serialization = "1.11.0"
-kotlinx-io = "0.9.1"
+kotlinx-serialization = "1.12.0"
+kotlinx-io = "0.9.2"
 clikt = "5.1.0"
 # The MCP SDK, at the version the portfolio already runs in tracy.
 mcpSdk = "0.15.0"
