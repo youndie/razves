@@ -37,7 +37,7 @@ jobs:
         with:
           go-version: stable
 
-      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.135
         with:
           konan-cache: true
 
@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: youndie/docs-bootstrap@v0.3.8
+      - uses: youndie/docs-bootstrap@v0.4.0
 
   # On a schedule, apart from the gate. The list is at zero and every path outside this repository
   # is an address (SPEC 4.1) - inside a dependency's artefact or at a commit of another repository -
@@ -75,7 +75,7 @@ jobs:
 
       # The code lives in this checkout, so its parent is a directory whose one subdirectory is
       # this repository - which is exactly what REPOS (`..` by default) expects.
-      - uses: youndie/docs-bootstrap@v0.3.8
+      - uses: youndie/docs-bootstrap@v0.4.0
         with:
           target: report
 
