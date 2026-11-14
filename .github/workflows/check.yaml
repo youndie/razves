@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: youndie/docs-bootstrap@v0.4.0
+      - uses: youndie/docs-bootstrap@v0.4.2
 
   # On a schedule, apart from the gate. The list is at zero and every path outside this repository
   # is an address (SPEC 4.1) - inside a dependency's artefact or at a commit of another repository -
@@ -75,7 +75,7 @@ jobs:
 
       # The code lives in this checkout, so its parent is a directory whose one subdirectory is
       # this repository - which is exactly what REPOS (`..` by default) expects.
-      - uses: youndie/docs-bootstrap@v0.4.0
+      - uses: youndie/docs-bootstrap@v0.4.2
         with:
           target: report
 
@@ -98,6 +98,6 @@ jobs:
       #       done
       #     env:
       #       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   - uses: youndie/docs-bootstrap@v0.3.8
+      #   - uses: youndie/docs-bootstrap@v0.4.2
       #     with:
       #       target: report REPOS=repos
